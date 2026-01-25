@@ -15,9 +15,9 @@ const geist = Geist({
 });
 
 export const metadata: Metadata = {
-  title: 'NirussVn0 - Developer',
+  title: 'DuMinh - AI Engineer',
   description: 'portfolio website',
-  generator: 'nirussvn0',
+  generator: 'duminh',
   icons: {
     icon: [{ url: '/logo.ico', sizes: '16x16', type: 'image/png' }],
     shortcut: '/favicon.ico',
