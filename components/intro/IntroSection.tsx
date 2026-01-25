@@ -143,7 +143,7 @@ export function IntroSection({
 
           {/* Payment info */}
           <Link 
-          href="/suport">
+          href="/support">
             <div className="mb-8 magnet-card border-dotted-thick border-border p-6 hover-lift hover:scale-105 hover:shadow-2xl transition-all duration-500">
               <div className="space-y-4">
                 <h3 className="font-bold text-lg">Support me ☕💖</h3>
