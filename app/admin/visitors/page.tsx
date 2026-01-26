@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { BarChart, Bar, PieChart, Pie, Cell, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 interface VisitorLog {
   timestamp: string;
@@ -17,16 +18,31 @@ interface VisitorData {
   recentVisitors: VisitorLog[];
 }
 
+interface Stats {
+  byCountry: { name: string; value: number }[];
+  byDevice: { name: string; value: number }[];
+  byHour: { hour: string; visitors: number }[];
+  byDay: { day: string; visitors: number }[];
+}
+
+const COLORS = ['#000000', '#666666', '#999999', '#CCCCCC'];
+
 export default function VisitorLogsPage() {
   const [data, setData] = useState<VisitorData>({ total: 0, recentVisitors: [] });
+  const [stats, setStats] = useState<Stats>({ byCountry: [], byDevice: [], byHour: [], byDay: [] });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await fetch('/api/visitor');
-        const result = await response.json();
-        setData(result);
+        const [visitorRes, statsRes] = await Promise.all([
+          fetch('/api/visitor'),
+          fetch('/api/visitor/stats'),
+        ]);
+        const visitorData = await visitorRes.json();
+        const statsData = await statsRes.json();
+        setData(visitorData);
+        setStats(statsData);
       } catch (error) {
         console.error('Failed to fetch visitor data:', error);
       } finally {
@@ -35,8 +51,8 @@ export default function VisitorLogsPage() {
     };
 
     fetchData();
-    // Refresh every 10 seconds
-    const interval = setInterval(fetchData, 10000);
+    // Refresh every 30 seconds
+    const interval = setInterval(fetchData, 30000);
     return () => clearInterval(interval);
   }, []);
 
@@ -104,6 +120,101 @@ export default function VisitorLogsPage() {
           </div>
         </div>
 
+        {/* Charts */}
+        {!loading && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            {/* Visitors by Country */}
+            <div className="border-solid-animated border-border p-6">
+              <h3 className="text-xl font-bold mb-4">Visitors by Country</h3>
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={stats.byCountry}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#333" />
+                  <XAxis dataKey="name" stroke="#666" />
+                  <YAxis stroke="#666" />
+                  <Tooltip 
+                    contentStyle={{ 
+                      background: '#000', 
+                      border: '2px solid #fff',
+                      color: '#fff'
+                    }} 
+                  />
+                  <Bar dataKey="value" fill="#000" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Visitors by Device */}
+            <div className="border-dashed-animated border-border p-6">
+              <h3 className="text-xl font-bold mb-4">Visitors by Device</h3>
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie
+                    data={stats.byDevice}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                    outerRadius={100}
+                    fill="#8884d8"
+                    dataKey="value"
+                  >
+                    {stats.byDevice.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip 
+                    contentStyle={{ 
+                      background: '#000', 
+                      border: '2px solid #fff',
+                      color: '#fff'
+                    }} 
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Visitors by Hour (Last 24h) */}
+            <div className="border-wave-animated border-border p-6">
+              <h3 className="text-xl font-bold mb-4">Visitors by Hour (Last 24h)</h3>
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={stats.byHour}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#333" />
+                  <XAxis dataKey="hour" stroke="#666" />
+                  <YAxis stroke="#666" />
+                  <Tooltip 
+                    contentStyle={{ 
+                      background: '#000', 
+                      border: '2px solid #fff',
+                      color: '#fff'
+                    }} 
+                  />
+                  <Line type="monotone" dataKey="visitors" stroke="#000" strokeWidth={2} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Visitors by Day (Last 7 days) */}
+            <div className="border-zigzag-animated border-border p-6">
+              <h3 className="text-xl font-bold mb-4">Visitors by Day (Last 7 days)</h3>
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={stats.byDay}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#333" />
+                  <XAxis dataKey="day" stroke="#666" />
+                  <YAxis stroke="#666" />
+                  <Tooltip 
+                    contentStyle={{ 
+                      background: '#000', 
+                      border: '2px solid #fff',
+                      color: '#fff'
+                    }} 
+                  />
+                  <Bar dataKey="visitors" fill="#000" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        )}
+
         {/* Visitor Logs Table */}
         <div className="border-double-animated border-border">
           <div className="p-4 border-b border-border">
@@ -164,7 +275,7 @@ export default function VisitorLogsPage() {
 
         {/* Auto refresh indicator */}
         <div className="mt-4 text-center text-sm text-muted-foreground">
-          Auto-refreshing every 10 seconds
+          Auto-refreshing every 30 seconds
         </div>
       </div>
     </div>

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { kv } from '@vercel/kv';
 import type { NextRequest } from 'next/server';
+import { sendVisitorNotification } from '@/lib/email';
 
 const VISITOR_KEY = 'portfolio:visitor:count';
 const VISITOR_LOG_KEY = 'portfolio:visitor:logs';
@@ -60,14 +61,24 @@ export async function POST(request: NextRequest) {
     await kv.ltrim(VISITOR_LOG_KEY, 0, 99);
     
     // Log to console (visible in Vercel Logs)
-    console.log('🎯 New Visitor:', {
+    const visitorInfo = {
       count,
       time: new Date().toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' }),
       country,
       city,
       device: userAgent.includes('Mobile') ? 'Mobile' : 'Desktop',
       from: referer,
-    });
+      ip,
+    };
+    
+    console.log('🎯 New Visitor:', visitorInfo);
+    
+    // Send email notification (async, don't wait)
+    if (process.env.RESEND_API_KEY && process.env.NOTIFICATION_EMAIL) {
+      sendVisitorNotification(visitorInfo).catch(err => 
+        console.error('Email notification failed:', err)
+      );
+    }
     
     return NextResponse.json({ total: count });
   } catch (error) {
