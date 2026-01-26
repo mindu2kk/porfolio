@@ -14,6 +14,13 @@ interface VisitorInfo {
 }
 
 export async function sendVisitorNotification(visitor: VisitorInfo) {
+  console.log('📧 sendVisitorNotification called with:', {
+    count: visitor.count,
+    country: visitor.country,
+    hasResend: !!resend,
+    hasEmail: !!process.env.NOTIFICATION_EMAIL,
+  });
+  
   // Skip if Resend not configured
   if (!resend || !process.env.NOTIFICATION_EMAIL) {
     console.log('📧 Email notification skipped (not configured)');
@@ -21,9 +28,11 @@ export async function sendVisitorNotification(visitor: VisitorInfo) {
   }
   
   try {
+    console.log('📧 Sending email to:', process.env.NOTIFICATION_EMAIL);
+    
     const { data, error } = await resend.emails.send({
-      from: 'Portfolio <onboarding@resend.dev>', // Sẽ đổi sau khi verify domain
-      to: [process.env.NOTIFICATION_EMAIL || 'your-email@example.com'],
+      from: 'Portfolio Notifications <onboarding@resend.dev>',
+      to: [process.env.NOTIFICATION_EMAIL],
       subject: `🎯 New Visitor #${visitor.count} - ${visitor.city}, ${visitor.country}`,
       html: `
         <div style="font-family: monospace; max-width: 600px; margin: 0 auto; padding: 20px; border: 2px solid #000;">

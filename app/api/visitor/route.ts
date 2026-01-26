@@ -74,10 +74,27 @@ export async function POST(request: NextRequest) {
     console.log('🎯 New Visitor:', visitorInfo);
     
     // Send email notification (async, don't wait)
+    console.log('📧 Checking email config:', {
+      hasResendKey: !!process.env.RESEND_API_KEY,
+      hasNotificationEmail: !!process.env.NOTIFICATION_EMAIL,
+      notificationEmail: process.env.NOTIFICATION_EMAIL,
+    });
+    
     if (process.env.RESEND_API_KEY && process.env.NOTIFICATION_EMAIL) {
-      sendVisitorNotification(visitorInfo).catch(err => 
-        console.error('Email notification failed:', err)
-      );
+      console.log('📧 Attempting to send email notification...');
+      sendVisitorNotification(visitorInfo)
+        .then(success => {
+          if (success) {
+            console.log('✅ Email notification sent successfully');
+          } else {
+            console.error('❌ Email notification failed');
+          }
+        })
+        .catch(err => {
+          console.error('❌ Email notification error:', err);
+        });
+    } else {
+      console.log('⚠️ Email notification skipped - missing config');
     }
     
     return NextResponse.json({ total: count });
