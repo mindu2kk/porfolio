@@ -64,27 +64,32 @@ export async function POST(request: GeoNextRequest) {
     let longitude = request.geo?.longitude || '';
     let timezone = request.geo?.timezone || '';
     
-    // If Vercel geo is not available, use IP geolocation API
+    // If Vercel geo is not available, use FreeIPAPI (better than ip-api.com)
     if (!country && ip !== 'Unknown') {
       try {
-        console.log('🌍 Vercel geo not available, fetching from IP API:', ip);
-        const geoResponse = await fetch(`http://ip-api.com/json/${ip}?fields=status,country,countryCode,region,regionName,city,lat,lon,timezone`);
+        console.log('🌍 Vercel geo not available, fetching from FreeIPAPI:', ip);
+        const geoResponse = await fetch(`https://freeipapi.com/api/json/${ip}`);
         const geoData = await geoResponse.json();
         
-        if (geoData.status === 'success') {
-          country = geoData.country || 'Unknown';
-          city = geoData.city || 'Unknown';
+        console.log('📍 FreeIPAPI response:', JSON.stringify(geoData, null, 2));
+        
+        if (geoData && geoData.countryName) {
+          country = geoData.countryName || 'Unknown';
+          city = geoData.cityName || 'Unknown';
           region = geoData.regionName || 'Unknown';
-          latitude = geoData.lat?.toString() || 'Unknown';
-          longitude = geoData.lon?.toString() || 'Unknown';
-          timezone = geoData.timezone || 'Unknown';
-          console.log('✅ Got geo data from IP API:', { country, city, region });
+          latitude = geoData.latitude?.toString() || 'Unknown';
+          longitude = geoData.longitude?.toString() || 'Unknown';
+          // timeZones is an array, get first one
+          timezone = (geoData.timeZones && geoData.timeZones[0]) || 'Unknown';
+          console.log('✅ Got geo data from FreeIPAPI:', { country, city, region, timezone });
         } else {
-          console.log('⚠️ IP API returned error:', geoData);
+          console.log('⚠️ FreeIPAPI returned incomplete data:', geoData);
         }
       } catch (geoError) {
-        console.error('❌ Failed to fetch geo data:', geoError);
+        console.error('❌ Failed to fetch geo data from FreeIPAPI:', geoError);
       }
+    } else if (country) {
+      console.log('✅ Using Vercel geo data:', { country, city, region });
     }
     
     // Fallback to Unknown if still empty

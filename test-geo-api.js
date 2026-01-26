@@ -3,26 +3,32 @@
 
 const testIP = '113.160.14.17'; // Vietnam IP from your screenshot
 
-console.log('🧪 Testing IP Geolocation API...\n');
+console.log('🧪 Testing FreeIPAPI (New API)...\n');
 console.log('Test IP:', testIP);
-console.log('API: http://ip-api.com/json/\n');
+console.log('API: https://freeipapi.com/api/json/\n');
 
-fetch(`http://ip-api.com/json/${testIP}?fields=status,country,countryCode,region,regionName,city,lat,lon,timezone`)
+fetch(`https://freeipapi.com/api/json/${testIP}`)
   .then(res => res.json())
   .then(data => {
     console.log('✅ API Response:');
     console.log(JSON.stringify(data, null, 2));
     
-    if (data.status === 'success') {
+    if (data && data.countryName) {
       console.log('\n✅ SUCCESS! Location data retrieved:');
-      console.log('  Country:', data.country);
-      console.log('  City:', data.city);
+      console.log('  Country:', data.countryName);
+      console.log('  City:', data.cityName);
       console.log('  Region:', data.regionName);
-      console.log('  Timezone:', data.timezone);
-      console.log('  Coordinates:', `${data.lat}, ${data.lon}`);
-      console.log('  Google Maps:', `https://www.google.com/maps?q=${data.lat},${data.lon}`);
+      console.log('  Timezone:', data.timeZones?.[0] || 'Unknown');
+      console.log('  Coordinates:', `${data.latitude}, ${data.longitude}`);
+      console.log('  Google Maps:', `https://www.google.com/maps?q=${data.latitude},${data.longitude}`);
+      console.log('  Zip Code:', data.zipCode);
+      console.log('  Continent:', data.continent);
+      console.log('  Currency:', data.currencies?.[0] || 'Unknown');
+      console.log('  Language:', data.languages?.[0] || 'Unknown');
+      console.log('  ISP:', data.asnOrganization);
+      console.log('  Is Proxy:', data.isProxy);
     } else {
-      console.log('\n❌ FAILED:', data.message);
+      console.log('\n❌ FAILED: Incomplete data');
     }
   })
   .catch(err => {
