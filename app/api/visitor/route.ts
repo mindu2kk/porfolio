@@ -41,16 +41,47 @@ export async function POST(request: NextRequest) {
     // Get visitor info with ALL available data
     const userAgent = request.headers.get('user-agent') || 'Unknown';
     const referer = request.headers.get('referer') || 'Direct';
-    const ip = request.headers.get('x-forwarded-for')?.split(',')[0].trim() || 
-               request.headers.get('x-real-ip') || 
-               'Unknown';
     
-    console.log('🔍 Detected IP:', ip);
+    // Try multiple ways to get IP
+    const xForwardedFor = request.headers.get('x-forwarded-for');
+    const xRealIp = request.headers.get('x-real-ip');
+    const cfConnectingIp = request.headers.get('cf-connecting-ip'); // Cloudflare
+    const trueClientIp = request.headers.get('true-client-ip'); // Cloudflare Enterprise
+    
+    console.log('🔍 IP Detection:');
+    console.log('  x-forwarded-for:', xForwardedFor);
+    console.log('  x-real-ip:', xRealIp);
+    console.log('  cf-connecting-ip:', cfConnectingIp);
+    console.log('  true-client-ip:', trueClientIp);
+    
+    // Extract IP (prefer x-forwarded-for first IP)
+    let ip = 'Unknown';
+    if (xForwardedFor) {
+      ip = xForwardedFor.split(',')[0].trim();
+    } else if (xRealIp) {
+      ip = xRealIp;
+    } else if (cfConnectingIp) {
+      ip = cfConnectingIp;
+    } else if (trueClientIp) {
+      ip = trueClientIp;
+    }
+    
+    console.log('✅ Selected IP:', ip);
+    console.log('🔍 IP Type:', 
+      ip === 'Unknown' ? 'Unknown' :
+      ip === '127.0.0.1' ? 'Localhost' :
+      ip.startsWith('192.168.') ? 'Private Network' :
+      ip.startsWith('10.') ? 'Private Network' :
+      ip.startsWith('172.') ? 'Private Network' :
+      'Public IP'
+    );
     
     // Collect ALL geolocation data from different sources
     const geoSources: any = {
       vercel: null,
       freeipapi: null,
+      ipapi: null,
+      ipinfo: null,
       headers: null,
     };
     
@@ -71,10 +102,19 @@ export async function POST(request: NextRequest) {
       geoSources.vercel = { error: 'Not available' };
     }
     
-    // Source 2: FreeIPAPI
-    if (ip !== 'Unknown' && ip !== '127.0.0.1' && !ip.startsWith('192.168.')) {
+    // Only fetch from external APIs if IP is valid
+    const isValidPublicIP = ip !== 'Unknown' && 
+                           ip !== '127.0.0.1' && 
+                           !ip.startsWith('192.168.') &&
+                           !ip.startsWith('10.') &&
+                           !ip.startsWith('172.');
+    
+    if (isValidPublicIP) {
+      console.log('✅ Valid public IP detected, fetching from multiple APIs...');
+      
+      // Source 2: FreeIPAPI
       try {
-        console.log('🌐 Fetching from FreeIPAPI for IP:', ip);
+        console.log('🌐 Fetching from FreeIPAPI...');
         const geoResponse = await fetch(`https://freeipapi.com/api/json/${ip}`, {
           signal: AbortSignal.timeout(5000)
         });
@@ -98,11 +138,64 @@ export async function POST(request: NextRequest) {
         console.error('❌ FreeIPAPI failed:', apiError);
         geoSources.freeipapi = { error: apiError instanceof Error ? apiError.message : 'Failed' };
       }
+      
+      // Source 3: ipapi.co (backup)
+      try {
+        console.log('🌐 Fetching from ipapi.co...');
+        const ipapiResponse = await fetch(`https://ipapi.co/${ip}/json/`, {
+          signal: AbortSignal.timeout(5000)
+        });
+        const ipapiData = await ipapiResponse.json();
+        console.log('📍 ipapi.co response:', JSON.stringify(ipapiData, null, 2));
+        
+        geoSources.ipapi = {
+          country: ipapiData.country_name || null,
+          countryCode: ipapiData.country_code || null,
+          city: ipapiData.city || null,
+          region: ipapiData.region || null,
+          latitude: ipapiData.latitude || null,
+          longitude: ipapiData.longitude || null,
+          timezone: ipapiData.timezone || null,
+          postal: ipapiData.postal || null,
+          org: ipapiData.org || null,
+        };
+      } catch (apiError) {
+        console.error('❌ ipapi.co failed:', apiError);
+        geoSources.ipapi = { error: apiError instanceof Error ? apiError.message : 'Failed' };
+      }
+      
+      // Source 4: ipinfo.io (backup)
+      try {
+        console.log('🌐 Fetching from ipinfo.io...');
+        const ipinfoResponse = await fetch(`https://ipinfo.io/${ip}/json`, {
+          signal: AbortSignal.timeout(5000)
+        });
+        const ipinfoData = await ipinfoResponse.json();
+        console.log('📍 ipinfo.io response:', JSON.stringify(ipinfoData, null, 2));
+        
+        const [lat, lon] = (ipinfoData.loc || ',').split(',');
+        geoSources.ipinfo = {
+          country: ipinfoData.country || null,
+          city: ipinfoData.city || null,
+          region: ipinfoData.region || null,
+          latitude: lat || null,
+          longitude: lon || null,
+          timezone: ipinfoData.timezone || null,
+          postal: ipinfoData.postal || null,
+          org: ipinfoData.org || null,
+        };
+      } catch (apiError) {
+        console.error('❌ ipinfo.io failed:', apiError);
+        geoSources.ipinfo = { error: apiError instanceof Error ? apiError.message : 'Failed' };
+      }
     } else {
+      console.log('⚠️ Invalid or private IP, skipping external API calls');
       geoSources.freeipapi = { error: 'Invalid IP for lookup' };
+      geoSources.ipapi = { error: 'Invalid IP for lookup' };
+      geoSources.ipinfo = { error: 'Invalid IP for lookup' };
     }
     
-    // Source 3: Vercel Geo Headers (raw)
+    // Source 5: Vercel Geo Headers (raw)
     geoSources.headers = {
       'x-vercel-ip-city': request.headers.get('x-vercel-ip-city') || null,
       'x-vercel-ip-country': request.headers.get('x-vercel-ip-country') || null,
@@ -111,32 +204,72 @@ export async function POST(request: NextRequest) {
       'x-vercel-ip-longitude': request.headers.get('x-vercel-ip-longitude') || null,
     };
     
-    // Determine best data (prefer FreeIPAPI for accuracy)
+    console.log('📊 All geo sources collected:', JSON.stringify(geoSources, null, 2));
+    
+    // Determine best data - try multiple sources in order of reliability
     let country = 'Unknown';
     let city = 'Unknown';
     let region = 'Unknown';
     let latitude = 'Unknown';
     let longitude = 'Unknown';
     let timezone = 'Unknown';
+    let dataSource = 'None';
     
-    if (geoSources.freeipapi && !geoSources.freeipapi.error) {
-      country = geoSources.freeipapi.country || 'Unknown';
+    // Priority 1: FreeIPAPI (most detailed)
+    if (geoSources.freeipapi && !geoSources.freeipapi.error && geoSources.freeipapi.country) {
+      country = geoSources.freeipapi.country;
       city = geoSources.freeipapi.city || 'Unknown';
       region = geoSources.freeipapi.region || 'Unknown';
       latitude = geoSources.freeipapi.latitude?.toString() || 'Unknown';
       longitude = geoSources.freeipapi.longitude?.toString() || 'Unknown';
       timezone = geoSources.freeipapi.timezone || 'Unknown';
-      console.log('✅ Using FreeIPAPI data (most accurate)');
-    } else if (geoSources.vercel && !geoSources.vercel.error) {
-      country = geoSources.vercel.country || 'Unknown';
+      dataSource = 'FreeIPAPI';
+      console.log('✅ Using FreeIPAPI data');
+    }
+    // Priority 2: ipapi.co
+    else if (geoSources.ipapi && !geoSources.ipapi.error && geoSources.ipapi.country) {
+      country = geoSources.ipapi.country;
+      city = geoSources.ipapi.city || 'Unknown';
+      region = geoSources.ipapi.region || 'Unknown';
+      latitude = geoSources.ipapi.latitude?.toString() || 'Unknown';
+      longitude = geoSources.ipapi.longitude?.toString() || 'Unknown';
+      timezone = geoSources.ipapi.timezone || 'Unknown';
+      dataSource = 'ipapi.co';
+      console.log('✅ Using ipapi.co data');
+    }
+    // Priority 3: ipinfo.io
+    else if (geoSources.ipinfo && !geoSources.ipinfo.error && geoSources.ipinfo.country) {
+      country = geoSources.ipinfo.country;
+      city = geoSources.ipinfo.city || 'Unknown';
+      region = geoSources.ipinfo.region || 'Unknown';
+      latitude = geoSources.ipinfo.latitude || 'Unknown';
+      longitude = geoSources.ipinfo.longitude || 'Unknown';
+      timezone = geoSources.ipinfo.timezone || 'Unknown';
+      dataSource = 'ipinfo.io';
+      console.log('✅ Using ipinfo.io data');
+    }
+    // Priority 4: Vercel geolocation
+    else if (geoSources.vercel && !geoSources.vercel.error && geoSources.vercel.country) {
+      country = geoSources.vercel.country;
       city = geoSources.vercel.city || 'Unknown';
       region = geoSources.vercel.region || 'Unknown';
       latitude = geoSources.vercel.latitude || 'Unknown';
       longitude = geoSources.vercel.longitude || 'Unknown';
+      dataSource = 'Vercel Geo';
       console.log('✅ Using Vercel geo data');
     }
+    // Priority 5: Vercel headers
+    else if (geoSources.headers && geoSources.headers['x-vercel-ip-country']) {
+      country = geoSources.headers['x-vercel-ip-country'];
+      city = geoSources.headers['x-vercel-ip-city'] || 'Unknown';
+      region = geoSources.headers['x-vercel-ip-country-region'] || 'Unknown';
+      latitude = geoSources.headers['x-vercel-ip-latitude'] || 'Unknown';
+      longitude = geoSources.headers['x-vercel-ip-longitude'] || 'Unknown';
+      dataSource = 'Vercel Headers';
+      console.log('✅ Using Vercel headers');
+    }
     
-    console.log('📊 Final geo data:', { country, city, region, latitude, longitude, timezone });
+    console.log('📊 Final geo data (from ' + dataSource + '):', { country, city, region, latitude, longitude, timezone });
     
     // Get all headers for debugging
     const allHeaders: Record<string, string> = {};
@@ -168,6 +301,7 @@ export async function POST(request: NextRequest) {
       latitude,
       longitude,
       timezone,
+      dataSource, // Which source was used
       device: userAgent.includes('Mobile') ? 'Mobile' : 'Desktop',
       from: referer,
       ip,
