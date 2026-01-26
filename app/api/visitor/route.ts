@@ -73,26 +73,18 @@ export async function POST(request: NextRequest) {
     
     console.log('🎯 New Visitor:', visitorInfo);
     
-    // Send email notification (async, don't wait)
-    console.log('📧 Checking email config:', {
-      hasResendKey: !!process.env.RESEND_API_KEY,
-      hasNotificationEmail: !!process.env.NOTIFICATION_EMAIL,
-      notificationEmail: process.env.NOTIFICATION_EMAIL,
-    });
-    
+    // Send email notification via separate API (async, don't wait)
     if (process.env.RESEND_API_KEY && process.env.NOTIFICATION_EMAIL) {
-      console.log('📧 Attempting to send email notification...');
-      sendVisitorNotification(visitorInfo)
-        .then(success => {
-          if (success) {
-            console.log('✅ Email notification sent successfully');
-          } else {
-            console.error('❌ Email notification failed');
-          }
-        })
-        .catch(err => {
-          console.error('❌ Email notification error:', err);
-        });
+      console.log('📧 Triggering email notification...');
+      
+      // Call notify API in background
+      fetch(`${request.nextUrl.origin}/api/notify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(visitorInfo),
+      }).catch(err => {
+        console.error('❌ Failed to trigger email:', err);
+      });
     } else {
       console.log('⚠️ Email notification skipped - missing config');
     }
@@ -104,4 +96,5 @@ export async function POST(request: NextRequest) {
   }
 }
 
+// Keep edge runtime for fast visitor counting
 export const runtime = 'edge';
