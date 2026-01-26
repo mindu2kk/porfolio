@@ -25,7 +25,7 @@ interface Stats {
   byDay: { day: string; visitors: number }[];
 }
 
-const COLORS = ['#000000', '#666666', '#999999', '#CCCCCC'];
+const COLORS = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E2'];
 
 export default function VisitorLogsPage() {
   const [data, setData] = useState<VisitorData>({ total: 0, recentVisitors: [] });
@@ -124,93 +124,146 @@ export default function VisitorLogsPage() {
         {!loading && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
             {/* Visitors by Country */}
-            <div className="border-solid-animated border-border p-6">
-              <h3 className="text-xl font-bold mb-4">Visitors by Country</h3>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={stats.byCountry}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-                  <XAxis dataKey="name" stroke="#666" />
-                  <YAxis stroke="#666" />
-                  <Tooltip 
-                    contentStyle={{ 
-                      background: '#000', 
-                      border: '2px solid #fff',
-                      color: '#fff'
-                    }} 
-                  />
-                  <Bar dataKey="value" fill="#000" />
-                </BarChart>
-              </ResponsiveContainer>
+            <div className="border-solid-animated border-border p-6 bg-background">
+              <h3 className="text-xl font-bold mb-4">🌍 Visitors by Country</h3>
+              {stats.byCountry.length > 0 ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={stats.byCountry}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#444" />
+                    <XAxis 
+                      dataKey="name" 
+                      stroke="#999" 
+                      style={{ fontSize: '12px' }}
+                    />
+                    <YAxis stroke="#999" />
+                    <Tooltip 
+                      contentStyle={{ 
+                        background: '#1a1a1a', 
+                        border: '2px solid #fff',
+                        color: '#fff',
+                        borderRadius: '4px'
+                      }}
+                      cursor={{ fill: 'rgba(255, 255, 255, 0.1)' }}
+                    />
+                    <Bar dataKey="value" fill="#FF6B6B" radius={[8, 8, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+                  No data yet
+                </div>
+              )}
             </div>
 
             {/* Visitors by Device */}
-            <div className="border-dashed-animated border-border p-6">
-              <h3 className="text-xl font-bold mb-4">Visitors by Device</h3>
-              <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie
-                    data={stats.byDevice}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                    outerRadius={100}
-                    fill="#8884d8"
-                    dataKey="value"
-                  >
-                    {stats.byDevice.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip 
-                    contentStyle={{ 
-                      background: '#000', 
-                      border: '2px solid #fff',
-                      color: '#fff'
-                    }} 
-                  />
-                </PieChart>
-              </ResponsiveContainer>
+            <div className="border-dashed-animated border-border p-6 bg-background">
+              <h3 className="text-xl font-bold mb-4">📱 Visitors by Device</h3>
+              {stats.byDevice.length > 0 ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie
+                      data={stats.byDevice}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={true}
+                      label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(1)}%`}
+                      outerRadius={100}
+                      fill="#8884d8"
+                      dataKey="value"
+                      stroke="#fff"
+                      strokeWidth={2}
+                    >
+                      {stats.byDevice.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip 
+                      contentStyle={{ 
+                        background: '#1a1a1a', 
+                        border: '2px solid #fff',
+                        color: '#fff',
+                        borderRadius: '4px'
+                      }} 
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+                  No data yet
+                </div>
+              )}
             </div>
 
             {/* Visitors by Hour (Last 24h) */}
-            <div className="border-wave-animated border-border p-6">
-              <h3 className="text-xl font-bold mb-4">Visitors by Hour (Last 24h)</h3>
-              <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={stats.byHour}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-                  <XAxis dataKey="hour" stroke="#666" />
-                  <YAxis stroke="#666" />
-                  <Tooltip 
-                    contentStyle={{ 
-                      background: '#000', 
-                      border: '2px solid #fff',
-                      color: '#fff'
-                    }} 
-                  />
-                  <Line type="monotone" dataKey="visitors" stroke="#000" strokeWidth={2} />
-                </LineChart>
-              </ResponsiveContainer>
+            <div className="border-wave-animated border-border p-6 bg-background">
+              <h3 className="text-xl font-bold mb-4">⏰ Visitors by Hour (Last 24h)</h3>
+              {stats.byHour.length > 0 ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <LineChart data={stats.byHour}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#444" />
+                    <XAxis 
+                      dataKey="hour" 
+                      stroke="#999"
+                      style={{ fontSize: '10px' }}
+                      interval={2}
+                    />
+                    <YAxis stroke="#999" />
+                    <Tooltip 
+                      contentStyle={{ 
+                        background: '#1a1a1a', 
+                        border: '2px solid #fff',
+                        color: '#fff',
+                        borderRadius: '4px'
+                      }}
+                      cursor={{ stroke: '#4ECDC4', strokeWidth: 2 }}
+                    />
+                    <Line 
+                      type="monotone" 
+                      dataKey="visitors" 
+                      stroke="#4ECDC4" 
+                      strokeWidth={3}
+                      dot={{ fill: '#4ECDC4', r: 4 }}
+                      activeDot={{ r: 6 }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+                  No data yet
+                </div>
+              )}
             </div>
 
             {/* Visitors by Day (Last 7 days) */}
-            <div className="border-zigzag-animated border-border p-6">
-              <h3 className="text-xl font-bold mb-4">Visitors by Day (Last 7 days)</h3>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={stats.byDay}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-                  <XAxis dataKey="day" stroke="#666" />
-                  <YAxis stroke="#666" />
-                  <Tooltip 
-                    contentStyle={{ 
-                      background: '#000', 
-                      border: '2px solid #fff',
-                      color: '#fff'
-                    }} 
-                  />
-                  <Bar dataKey="visitors" fill="#000" />
-                </BarChart>
-              </ResponsiveContainer>
+            <div className="border-zigzag-animated border-border p-6 bg-background">
+              <h3 className="text-xl font-bold mb-4">📅 Visitors by Day (Last 7 days)</h3>
+              {stats.byDay.length > 0 ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={stats.byDay}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#444" />
+                    <XAxis 
+                      dataKey="day" 
+                      stroke="#999"
+                      style={{ fontSize: '12px' }}
+                    />
+                    <YAxis stroke="#999" />
+                    <Tooltip 
+                      contentStyle={{ 
+                        background: '#1a1a1a', 
+                        border: '2px solid #fff',
+                        color: '#fff',
+                        borderRadius: '4px'
+                      }}
+                      cursor={{ fill: 'rgba(255, 255, 255, 0.1)' }}
+                    />
+                    <Bar dataKey="visitors" fill="#45B7D1" radius={[8, 8, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+                  No data yet
+                </div>
+              )}
             </div>
           </div>
         )}

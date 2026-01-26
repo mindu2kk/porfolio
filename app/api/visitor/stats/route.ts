@@ -29,8 +29,9 @@ export async function GET() {
     // Count by country
     const countryMap = new Map<string, number>();
     logs.forEach(log => {
-      const count = countryMap.get(log.country) || 0;
-      countryMap.set(log.country, count + 1);
+      const country = log.country || 'Unknown';
+      const count = countryMap.get(country) || 0;
+      countryMap.set(country, count + 1);
     });
     const byCountry = Array.from(countryMap.entries())
       .map(([name, value]) => ({ name, value }))
@@ -47,38 +48,65 @@ export async function GET() {
     const byDevice = Array.from(deviceMap.entries())
       .map(([name, value]) => ({ name, value }));
     
-    // Count by hour (last 24 hours)
-    const hourMap = new Map<number, number>();
+    // Count by hour (last 24 hours) - FIXED LOGIC
     const now = new Date();
-    logs.forEach(log => {
-      const logDate = new Date(log.timestamp);
-      const hoursDiff = Math.floor((now.getTime() - logDate.getTime()) / (1000 * 60 * 60));
-      if (hoursDiff < 24) {
-        const hour = logDate.getHours();
-        const count = hourMap.get(hour) || 0;
-        hourMap.set(hour, count + 1);
-      }
-    });
-    const byHour = Array.from({ length: 24 }, (_, i) => ({
-      hour: `${i}:00`,
-      visitors: hourMap.get(i) || 0,
-    }));
+    const hourMap = new Map<string, number>();
     
-    // Count by day (last 7 days)
-    const dayMap = new Map<string, number>();
+    // Initialize all hours in last 24h
+    for (let i = 23; i >= 0; i--) {
+      const hourDate = new Date(now.getTime() - i * 60 * 60 * 1000);
+      const hourKey = hourDate.getHours().toString().padStart(2, '0');
+      hourMap.set(hourKey, 0);
+    }
+    
+    // Count visitors per hour
     logs.forEach(log => {
       const logDate = new Date(log.timestamp);
-      const daysDiff = Math.floor((now.getTime() - logDate.getTime()) / (1000 * 60 * 60 * 24));
-      if (daysDiff < 7) {
-        const day = logDate.toLocaleDateString('en-US', { weekday: 'short' });
-        const count = dayMap.get(day) || 0;
-        dayMap.set(day, count + 1);
+      const timeDiff = now.getTime() - logDate.getTime();
+      const hoursDiff = timeDiff / (1000 * 60 * 60);
+      
+      if (hoursDiff < 24) {
+        const hourKey = logDate.getHours().toString().padStart(2, '0');
+        const count = hourMap.get(hourKey) || 0;
+        hourMap.set(hourKey, count + 1);
       }
     });
-    const byDay = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => ({
-      day,
-      visitors: dayMap.get(day) || 0,
-    }));
+    
+    const byHour = Array.from(hourMap.entries())
+      .map(([hour, visitors]) => ({
+        hour: `${hour}:00`,
+        visitors,
+      }))
+      .sort((a, b) => parseInt(a.hour) - parseInt(b.hour));
+    
+    // Count by day (last 7 days) - FIXED LOGIC
+    const dayMap = new Map<string, number>();
+    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    
+    // Initialize last 7 days
+    for (let i = 6; i >= 0; i--) {
+      const dayDate = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
+      const dayName = dayNames[dayDate.getDay()];
+      const dayKey = `${dayName} ${dayDate.getDate()}/${dayDate.getMonth() + 1}`;
+      dayMap.set(dayKey, 0);
+    }
+    
+    // Count visitors per day
+    logs.forEach(log => {
+      const logDate = new Date(log.timestamp);
+      const timeDiff = now.getTime() - logDate.getTime();
+      const daysDiff = timeDiff / (1000 * 60 * 60 * 24);
+      
+      if (daysDiff < 7) {
+        const dayName = dayNames[logDate.getDay()];
+        const dayKey = `${dayName} ${logDate.getDate()}/${logDate.getMonth() + 1}`;
+        const count = dayMap.get(dayKey) || 0;
+        dayMap.set(dayKey, count + 1);
+      }
+    });
+    
+    const byDay = Array.from(dayMap.entries())
+      .map(([day, visitors]) => ({ day, visitors }));
     
     return NextResponse.json({
       byCountry,
