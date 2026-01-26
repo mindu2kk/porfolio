@@ -17,6 +17,11 @@ interface VisitorInfo {
   ip: string;
   userAgent?: string;
   allHeaders?: Record<string, string>;
+  geoSources?: {
+    vercel: any;
+    freeipapi: any;
+    headers: any;
+  };
 }
 
 function getBrowserInfo(userAgent: string) {
@@ -182,6 +187,66 @@ export async function sendVisitorNotification(visitor: VisitorInfo) {
                   <span class="value">${visitor.from === 'Direct' ? '🔗 Direct Visit' : visitor.from}</span>
                 </div>
               </div>
+              
+              ${visitor.geoSources ? `
+              <div class="section">
+                <div class="section-title">📊 GEOLOCATION SOURCES COMPARISON</div>
+                
+                <div style="margin-bottom: 15px;">
+                  <strong style="color: #000;">🌍 Vercel Geolocation:</strong>
+                  ${visitor.geoSources.vercel?.error ? `
+                    <div style="color: #999; font-style: italic;">❌ ${visitor.geoSources.vercel.error}</div>
+                  ` : `
+                    <div style="margin-left: 15px; margin-top: 5px;">
+                      <div>Country: ${visitor.geoSources.vercel?.country || 'N/A'}</div>
+                      <div>City: ${visitor.geoSources.vercel?.city || 'N/A'}</div>
+                      <div>Region: ${visitor.geoSources.vercel?.region || 'N/A'}</div>
+                      <div>Country Code: ${visitor.geoSources.vercel?.countryRegion || 'N/A'}</div>
+                      <div>Coordinates: ${visitor.geoSources.vercel?.latitude || 'N/A'}, ${visitor.geoSources.vercel?.longitude || 'N/A'}</div>
+                    </div>
+                  `}
+                </div>
+                
+                <div style="margin-bottom: 15px;">
+                  <strong style="color: #000;">🌐 FreeIPAPI (IP-based):</strong>
+                  ${visitor.geoSources.freeipapi?.error ? `
+                    <div style="color: #999; font-style: italic;">❌ ${visitor.geoSources.freeipapi.error}</div>
+                  ` : `
+                    <div style="margin-left: 15px; margin-top: 5px; background: #fffacd; padding: 10px; border-left: 3px solid #ffd700;">
+                      <div><strong>Country:</strong> ${visitor.geoSources.freeipapi?.country || 'N/A'} (${visitor.geoSources.freeipapi?.countryCode || 'N/A'})</div>
+                      <div><strong>City:</strong> ${visitor.geoSources.freeipapi?.city || 'N/A'}</div>
+                      <div><strong>Region:</strong> ${visitor.geoSources.freeipapi?.region || 'N/A'}</div>
+                      <div><strong>Timezone:</strong> ${visitor.geoSources.freeipapi?.timezone || 'N/A'}</div>
+                      <div><strong>Coordinates:</strong> ${visitor.geoSources.freeipapi?.latitude || 'N/A'}, ${visitor.geoSources.freeipapi?.longitude || 'N/A'}</div>
+                      <div><strong>Zip Code:</strong> ${visitor.geoSources.freeipapi?.zipCode || 'N/A'}</div>
+                      <div><strong>Continent:</strong> ${visitor.geoSources.freeipapi?.continent || 'N/A'}</div>
+                      <div><strong>ISP:</strong> ${visitor.geoSources.freeipapi?.isp || 'N/A'}</div>
+                      <div><strong>Is Proxy:</strong> ${visitor.geoSources.freeipapi?.isProxy ? 'Yes ⚠️' : 'No ✅'}</div>
+                    </div>
+                  `}
+                </div>
+                
+                <div style="margin-bottom: 15px;">
+                  <strong style="color: #000;">📋 Vercel Headers (Raw):</strong>
+                  <div style="margin-left: 15px; margin-top: 5px; font-family: monospace; font-size: 11px;">
+                    ${Object.entries(visitor.geoSources.headers || {}).map(([key, value]) => 
+                      `<div>${key}: ${value || 'null'}</div>`
+                    ).join('')}
+                  </div>
+                </div>
+                
+                <div style="background: #e8f5e9; padding: 10px; border-left: 3px solid #4caf50; margin-top: 10px;">
+                  <strong>✅ SELECTED DATA (Used in email):</strong>
+                  <div style="margin-left: 15px; margin-top: 5px;">
+                    <div>Country: <strong>${visitor.country}</strong></div>
+                    <div>City: <strong>${visitor.city}</strong></div>
+                    <div>Region: <strong>${visitor.region || 'N/A'}</strong></div>
+                    <div>Timezone: <strong>${visitor.timezone || 'N/A'}</strong></div>
+                    <div>Coordinates: <strong>${visitor.latitude}, ${visitor.longitude}</strong></div>
+                  </div>
+                </div>
+              </div>
+              ` : ''}
             </div>
             
             <div class="footer">

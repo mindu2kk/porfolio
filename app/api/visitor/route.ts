@@ -45,40 +45,98 @@ export async function POST(request: NextRequest) {
                request.headers.get('x-real-ip') || 
                'Unknown';
     
-    // Use Vercel's official geolocation function
-    const geo = geolocation(request);
+    console.log('🔍 Detected IP:', ip);
     
-    console.log('🌍 Vercel geolocation data:', JSON.stringify(geo, null, 2));
-    
-    // Extract geo data from Vercel's geolocation helper
-    const country = geo.country || 'Unknown';
-    const city = geo.city || 'Unknown';
-    const region = geo.region || 'Unknown';
-    const latitude = geo.latitude || 'Unknown';
-    const longitude = geo.longitude || 'Unknown';
-    
-    // Map country to timezone (common timezones)
-    const timezoneMap: Record<string, string> = {
-      'VN': 'Asia/Ho_Chi_Minh',
-      'US': 'America/New_York',
-      'GB': 'Europe/London',
-      'JP': 'Asia/Tokyo',
-      'CN': 'Asia/Shanghai',
-      'AU': 'Australia/Sydney',
-      'SG': 'Asia/Singapore',
-      'TH': 'Asia/Bangkok',
-      'MY': 'Asia/Kuala_Lumpur',
-      'ID': 'Asia/Jakarta',
-      'PH': 'Asia/Manila',
-      'KR': 'Asia/Seoul',
-      'IN': 'Asia/Kolkata',
-      'FR': 'Europe/Paris',
-      'DE': 'Europe/Berlin',
+    // Collect ALL geolocation data from different sources
+    const geoSources: any = {
+      vercel: null,
+      freeipapi: null,
+      headers: null,
     };
     
-    const timezone = geo.countryRegion ? timezoneMap[geo.countryRegion] || 'UTC' : 'UTC';
+    // Source 1: Vercel Geolocation
+    try {
+      const geo = geolocation(request);
+      console.log('🌍 Vercel geolocation data:', JSON.stringify(geo, null, 2));
+      geoSources.vercel = {
+        country: geo.country || null,
+        city: geo.city || null,
+        region: geo.region || null,
+        countryRegion: geo.countryRegion || null,
+        latitude: geo.latitude || null,
+        longitude: geo.longitude || null,
+      };
+    } catch (vercelGeoError) {
+      console.log('⚠️ Vercel geolocation not available:', vercelGeoError);
+      geoSources.vercel = { error: 'Not available' };
+    }
     
-    console.log('✅ Processed geo data:', { country, city, region, latitude, longitude, timezone });
+    // Source 2: FreeIPAPI
+    if (ip !== 'Unknown' && ip !== '127.0.0.1' && !ip.startsWith('192.168.')) {
+      try {
+        console.log('🌐 Fetching from FreeIPAPI for IP:', ip);
+        const geoResponse = await fetch(`https://freeipapi.com/api/json/${ip}`, {
+          signal: AbortSignal.timeout(5000)
+        });
+        const geoData = await geoResponse.json();
+        console.log('📍 FreeIPAPI response:', JSON.stringify(geoData, null, 2));
+        
+        geoSources.freeipapi = {
+          country: geoData.countryName || null,
+          countryCode: geoData.countryCode || null,
+          city: geoData.cityName || null,
+          region: geoData.regionName || null,
+          latitude: geoData.latitude || null,
+          longitude: geoData.longitude || null,
+          timezone: geoData.timeZones?.[0] || null,
+          zipCode: geoData.zipCode || null,
+          continent: geoData.continent || null,
+          isp: geoData.asnOrganization || null,
+          isProxy: geoData.isProxy || false,
+        };
+      } catch (apiError) {
+        console.error('❌ FreeIPAPI failed:', apiError);
+        geoSources.freeipapi = { error: apiError instanceof Error ? apiError.message : 'Failed' };
+      }
+    } else {
+      geoSources.freeipapi = { error: 'Invalid IP for lookup' };
+    }
+    
+    // Source 3: Vercel Geo Headers (raw)
+    geoSources.headers = {
+      'x-vercel-ip-city': request.headers.get('x-vercel-ip-city') || null,
+      'x-vercel-ip-country': request.headers.get('x-vercel-ip-country') || null,
+      'x-vercel-ip-country-region': request.headers.get('x-vercel-ip-country-region') || null,
+      'x-vercel-ip-latitude': request.headers.get('x-vercel-ip-latitude') || null,
+      'x-vercel-ip-longitude': request.headers.get('x-vercel-ip-longitude') || null,
+    };
+    
+    // Determine best data (prefer FreeIPAPI for accuracy)
+    let country = 'Unknown';
+    let city = 'Unknown';
+    let region = 'Unknown';
+    let latitude = 'Unknown';
+    let longitude = 'Unknown';
+    let timezone = 'Unknown';
+    
+    if (geoSources.freeipapi && !geoSources.freeipapi.error) {
+      country = geoSources.freeipapi.country || 'Unknown';
+      city = geoSources.freeipapi.city || 'Unknown';
+      region = geoSources.freeipapi.region || 'Unknown';
+      latitude = geoSources.freeipapi.latitude?.toString() || 'Unknown';
+      longitude = geoSources.freeipapi.longitude?.toString() || 'Unknown';
+      timezone = geoSources.freeipapi.timezone || 'Unknown';
+      console.log('✅ Using FreeIPAPI data (most accurate)');
+    } else if (geoSources.vercel && !geoSources.vercel.error) {
+      country = geoSources.vercel.country || 'Unknown';
+      city = geoSources.vercel.city || 'Unknown';
+      region = geoSources.vercel.region || 'Unknown';
+      latitude = geoSources.vercel.latitude || 'Unknown';
+      longitude = geoSources.vercel.longitude || 'Unknown';
+      console.log('✅ Using Vercel geo data');
+    }
+    
+    console.log('📊 Final geo data:', { country, city, region, latitude, longitude, timezone });
     
     // Get all headers for debugging
     const allHeaders: Record<string, string> = {};
@@ -115,6 +173,7 @@ export async function POST(request: NextRequest) {
       ip,
       userAgent,
       allHeaders, // Include all headers for maximum info
+      geoSources, // Include ALL geolocation sources for comparison
     };
     
     console.log('🎯 New Visitor (FULL DATA):', JSON.stringify(visitorInfo, null, 2));
