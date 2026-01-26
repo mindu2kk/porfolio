@@ -15,6 +15,18 @@ interface VisitorLog {
   city: string;
 }
 
+// Extend NextRequest to include geo property
+interface GeoNextRequest extends NextRequest {
+  geo?: {
+    country?: string;
+    city?: string;
+    region?: string;
+    latitude?: string;
+    longitude?: string;
+    timezone?: string;
+  };
+}
+
 export async function GET() {
   try {
     const count = await kv.get<number>(VISITOR_KEY);
@@ -32,12 +44,12 @@ export async function GET() {
   }
 }
 
-export async function POST(request: NextRequest) {
+export async function POST(request: GeoNextRequest) {
   try {
     // Increment counter
     const count = await kv.incr(VISITOR_KEY);
     
-    // Get visitor info
+    // Get visitor info with ALL available data
     const userAgent = request.headers.get('user-agent') || 'Unknown';
     const referer = request.headers.get('referer') || 'Direct';
     const ip = request.headers.get('x-forwarded-for') || 
@@ -45,6 +57,16 @@ export async function POST(request: NextRequest) {
                'Unknown';
     const country = request.geo?.country || 'Unknown';
     const city = request.geo?.city || 'Unknown';
+    const region = request.geo?.region || 'Unknown';
+    const latitude = request.geo?.latitude || 'Unknown';
+    const longitude = request.geo?.longitude || 'Unknown';
+    const timezone = request.geo?.timezone || 'Unknown';
+    
+    // Get all headers for debugging
+    const allHeaders: Record<string, string> = {};
+    request.headers.forEach((value, key) => {
+      allHeaders[key] = value;
+    });
     
     // Create log entry
     const logEntry: VisitorLog = {
@@ -66,27 +88,38 @@ export async function POST(request: NextRequest) {
       time: new Date().toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' }),
       country,
       city,
+      region,
+      latitude,
+      longitude,
+      timezone,
       device: userAgent.includes('Mobile') ? 'Mobile' : 'Desktop',
       from: referer,
       ip,
+      userAgent,
+      allHeaders, // Include all headers for maximum info
     };
     
-    console.log('🎯 New Visitor:', visitorInfo);
+    console.log('🎯 New Visitor (FULL DATA):', JSON.stringify(visitorInfo, null, 2));
     
-    // Send email notification via separate API (async, don't wait)
+    // Send email notification - USE THE IMPORTED FUNCTION DIRECTLY
     if (process.env.RESEND_API_KEY && process.env.NOTIFICATION_EMAIL) {
       console.log('📧 Triggering email notification...');
+      console.log('📧 RESEND_API_KEY exists:', !!process.env.RESEND_API_KEY);
+      console.log('📧 NOTIFICATION_EMAIL:', process.env.NOTIFICATION_EMAIL);
       
-      // Call notify API in background
-      fetch(`${request.nextUrl.origin}/api/notify`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(visitorInfo),
-      }).catch(err => {
-        console.error('❌ Failed to trigger email:', err);
-      });
+      // Call the function directly (already imported at top)
+      sendVisitorNotification(visitorInfo)
+        .then(success => {
+          console.log(success ? '✅ Email sent successfully!' : '❌ Email failed to send');
+        })
+        .catch(err => {
+          console.error('❌ Email error caught:', err);
+          console.error('❌ Error stack:', err.stack);
+        });
     } else {
       console.log('⚠️ Email notification skipped - missing config');
+      console.log('⚠️ RESEND_API_KEY:', process.env.RESEND_API_KEY ? 'SET' : 'MISSING');
+      console.log('⚠️ NOTIFICATION_EMAIL:', process.env.NOTIFICATION_EMAIL || 'MISSING');
     }
     
     return NextResponse.json({ total: count });
@@ -96,5 +129,5 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// Keep edge runtime for fast visitor counting
-export const runtime = 'edge';
+// Use nodejs runtime for Resend email support
+export const runtime = 'nodejs';

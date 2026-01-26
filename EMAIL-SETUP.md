@@ -31,7 +31,20 @@ Nhận email mỗi khi có visitor mới truy cập website!
 2. Click **Redeploy** trên deployment mới nhất
 3. Đợi deploy xong
 
-### Bước 5: Test
+### Bước 5: Kiểm tra logs (QUAN TRỌNG!)
+
+Sau khi deploy xong và có visitor mới:
+
+1. Vào **Logs** tab trong Vercel
+2. Tìm các dòng log sau:
+   - `📧 [EMAIL] sendVisitorNotification called` - Email function được gọi
+   - `📧 [EMAIL] Calling resend.emails.send...` - Đang gửi email
+   - `✅ [EMAIL] Email sent successfully!` - Email đã gửi thành công
+3. Nếu có lỗi, xem chi tiết trong log
+
+**⚠️ Nếu không thấy email, đọc file `EMAIL-DEBUG.md` để debug chi tiết!**
+
+### Bước 6: Test
 1. Truy cập website của bạn
 2. Kiểm tra email (có thể trong Spam)
 3. Bạn sẽ nhận email như này:
@@ -77,15 +90,36 @@ html: `...your custom HTML...`
 
 ## Troubleshooting
 
-### Email không đến:
-1. Kiểm tra Spam folder
-2. Kiểm tra RESEND_API_KEY đúng chưa
-3. Kiểm tra NOTIFICATION_EMAIL đúng chưa
-4. Xem logs trong Vercel: Functions > /api/visitor
+### ❌ Không nhận được email?
+
+**BƯỚC 1**: Kiểm tra Vercel logs
+1. Vào Vercel Dashboard > Logs
+2. Tìm log `✅ [EMAIL] Email sent successfully!`
+3. Nếu KHÔNG thấy → Đọc `EMAIL-DEBUG.md` để debug
+
+**BƯỚC 2**: Kiểm tra Resend Dashboard
+1. Vào https://resend.com/emails
+2. Xem email có được gửi không
+3. Check status: Delivered / Bounced / Rejected
+
+**BƯỚC 3**: Kiểm tra email
+1. Check spam folder
+2. Thử email khác
+3. Verify email address đúng chưa
+
+**📖 Đọc chi tiết**: `EMAIL-DEBUG.md` - Hướng dẫn debug từng bước với tất cả các trường hợp lỗi!
 
 ### Email bị reject:
-1. Verify domain (xem trên)
-2. Hoặc dùng email test của Resend: `onboarding@resend.dev`
+1. Free tier Resend chỉ gửi được đến email đã verify
+2. Hoặc dùng domain `onboarding@resend.dev` (mặc định)
+3. Để gửi đến bất kỳ email nào, cần verify domain của bạn
+
+### Rate limit?
+- Free tier: 100 emails/day
+- Paid tier: 3,000+ emails/day
+
+### Các lỗi khác?
+Đọc file `EMAIL-DEBUG.md` - Có hướng dẫn chi tiết cho TẤT CẢ các lỗi có thể xảy ra!
 
 ## Giới hạn Free Tier
 
