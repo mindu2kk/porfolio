@@ -52,15 +52,48 @@ export async function POST(request: GeoNextRequest) {
     // Get visitor info with ALL available data
     const userAgent = request.headers.get('user-agent') || 'Unknown';
     const referer = request.headers.get('referer') || 'Direct';
-    const ip = request.headers.get('x-forwarded-for') || 
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0].trim() || 
                request.headers.get('x-real-ip') || 
                'Unknown';
-    const country = request.geo?.country || 'Unknown';
-    const city = request.geo?.city || 'Unknown';
-    const region = request.geo?.region || 'Unknown';
-    const latitude = request.geo?.latitude || 'Unknown';
-    const longitude = request.geo?.longitude || 'Unknown';
-    const timezone = request.geo?.timezone || 'Unknown';
+    
+    // Try to get geo data from Vercel first
+    let country = request.geo?.country || '';
+    let city = request.geo?.city || '';
+    let region = request.geo?.region || '';
+    let latitude = request.geo?.latitude || '';
+    let longitude = request.geo?.longitude || '';
+    let timezone = request.geo?.timezone || '';
+    
+    // If Vercel geo is not available, use IP geolocation API
+    if (!country && ip !== 'Unknown') {
+      try {
+        console.log('🌍 Vercel geo not available, fetching from IP API:', ip);
+        const geoResponse = await fetch(`http://ip-api.com/json/${ip}?fields=status,country,countryCode,region,regionName,city,lat,lon,timezone`);
+        const geoData = await geoResponse.json();
+        
+        if (geoData.status === 'success') {
+          country = geoData.country || 'Unknown';
+          city = geoData.city || 'Unknown';
+          region = geoData.regionName || 'Unknown';
+          latitude = geoData.lat?.toString() || 'Unknown';
+          longitude = geoData.lon?.toString() || 'Unknown';
+          timezone = geoData.timezone || 'Unknown';
+          console.log('✅ Got geo data from IP API:', { country, city, region });
+        } else {
+          console.log('⚠️ IP API returned error:', geoData);
+        }
+      } catch (geoError) {
+        console.error('❌ Failed to fetch geo data:', geoError);
+      }
+    }
+    
+    // Fallback to Unknown if still empty
+    country = country || 'Unknown';
+    city = city || 'Unknown';
+    region = region || 'Unknown';
+    latitude = latitude || 'Unknown';
+    longitude = longitude || 'Unknown';
+    timezone = timezone || 'Unknown';
     
     // Get all headers for debugging
     const allHeaders: Record<string, string> = {};
