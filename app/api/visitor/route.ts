@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { kv } from '@vercel/kv';
+import { geolocation } from '@vercel/functions';
 import type { NextRequest } from 'next/server';
 import { sendVisitorNotification } from '@/lib/email';
 
@@ -13,18 +14,6 @@ interface VisitorLog {
   ip: string;
   country: string;
   city: string;
-}
-
-// Extend NextRequest to include geo property
-interface GeoNextRequest extends NextRequest {
-  geo?: {
-    country?: string;
-    city?: string;
-    region?: string;
-    latitude?: string;
-    longitude?: string;
-    timezone?: string;
-  };
 }
 
 export async function GET() {
@@ -44,7 +33,7 @@ export async function GET() {
   }
 }
 
-export async function POST(request: GeoNextRequest) {
+export async function POST(request: NextRequest) {
   try {
     // Increment counter
     const count = await kv.incr(VISITOR_KEY);
@@ -56,49 +45,40 @@ export async function POST(request: GeoNextRequest) {
                request.headers.get('x-real-ip') || 
                'Unknown';
     
-    // Try to get geo data from Vercel first
-    let country = request.geo?.country || '';
-    let city = request.geo?.city || '';
-    let region = request.geo?.region || '';
-    let latitude = request.geo?.latitude || '';
-    let longitude = request.geo?.longitude || '';
-    let timezone = request.geo?.timezone || '';
+    // Use Vercel's official geolocation function
+    const geo = geolocation(request);
     
-    // If Vercel geo is not available, use FreeIPAPI (better than ip-api.com)
-    if (!country && ip !== 'Unknown') {
-      try {
-        console.log('🌍 Vercel geo not available, fetching from FreeIPAPI:', ip);
-        const geoResponse = await fetch(`https://freeipapi.com/api/json/${ip}`);
-        const geoData = await geoResponse.json();
-        
-        console.log('📍 FreeIPAPI response:', JSON.stringify(geoData, null, 2));
-        
-        if (geoData && geoData.countryName) {
-          country = geoData.countryName || 'Unknown';
-          city = geoData.cityName || 'Unknown';
-          region = geoData.regionName || 'Unknown';
-          latitude = geoData.latitude?.toString() || 'Unknown';
-          longitude = geoData.longitude?.toString() || 'Unknown';
-          // timeZones is an array, get first one
-          timezone = (geoData.timeZones && geoData.timeZones[0]) || 'Unknown';
-          console.log('✅ Got geo data from FreeIPAPI:', { country, city, region, timezone });
-        } else {
-          console.log('⚠️ FreeIPAPI returned incomplete data:', geoData);
-        }
-      } catch (geoError) {
-        console.error('❌ Failed to fetch geo data from FreeIPAPI:', geoError);
-      }
-    } else if (country) {
-      console.log('✅ Using Vercel geo data:', { country, city, region });
-    }
+    console.log('🌍 Vercel geolocation data:', JSON.stringify(geo, null, 2));
     
-    // Fallback to Unknown if still empty
-    country = country || 'Unknown';
-    city = city || 'Unknown';
-    region = region || 'Unknown';
-    latitude = latitude || 'Unknown';
-    longitude = longitude || 'Unknown';
-    timezone = timezone || 'Unknown';
+    // Extract geo data from Vercel's geolocation helper
+    const country = geo.country || 'Unknown';
+    const city = geo.city || 'Unknown';
+    const region = geo.region || 'Unknown';
+    const latitude = geo.latitude || 'Unknown';
+    const longitude = geo.longitude || 'Unknown';
+    
+    // Map country to timezone (common timezones)
+    const timezoneMap: Record<string, string> = {
+      'VN': 'Asia/Ho_Chi_Minh',
+      'US': 'America/New_York',
+      'GB': 'Europe/London',
+      'JP': 'Asia/Tokyo',
+      'CN': 'Asia/Shanghai',
+      'AU': 'Australia/Sydney',
+      'SG': 'Asia/Singapore',
+      'TH': 'Asia/Bangkok',
+      'MY': 'Asia/Kuala_Lumpur',
+      'ID': 'Asia/Jakarta',
+      'PH': 'Asia/Manila',
+      'KR': 'Asia/Seoul',
+      'IN': 'Asia/Kolkata',
+      'FR': 'Europe/Paris',
+      'DE': 'Europe/Berlin',
+    };
+    
+    const timezone = geo.countryRegion ? timezoneMap[geo.countryRegion] || 'UTC' : 'UTC';
+    
+    console.log('✅ Processed geo data:', { country, city, region, latitude, longitude, timezone });
     
     // Get all headers for debugging
     const allHeaders: Record<string, string> = {};
