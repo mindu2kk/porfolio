@@ -16,6 +16,7 @@ interface VisitorLog {
 interface VisitorData {
   total: number;
   recentVisitors: VisitorLog[];
+  activeSessions?: number;
 }
 
 interface Stats {
@@ -102,7 +103,7 @@ export default function VisitorLogsPage() {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           <div className="border-pulse-animated border-border p-6">
             <div className="text-sm text-muted-foreground mb-2">Total Visitors</div>
             <div className="text-4xl font-bold">{data.total.toLocaleString()}</div>
@@ -110,6 +111,10 @@ export default function VisitorLogsPage() {
           <div className="border-wave-animated border-border p-6">
             <div className="text-sm text-muted-foreground mb-2">Recent Visitors</div>
             <div className="text-4xl font-bold">{data.recentVisitors.length}</div>
+          </div>
+          <div className="border-dashed-animated border-border p-6">
+            <div className="text-sm text-muted-foreground mb-2">Active Now</div>
+            <div className="text-4xl font-bold">{data.activeSessions || 0}</div>
           </div>
           <div className="border-zigzag-animated border-border p-6">
             <div className="text-sm text-muted-foreground mb-2">Status</div>

@@ -6,6 +6,7 @@ import { sendVisitorNotification } from '@/lib/email';
 import { visitorRateLimit, getClientIdentifier } from '@/lib/ratelimit';
 import { sanitizeString } from '@/lib/validation';
 import { logAudit } from '@/lib/audit';
+import { getActiveSessions } from '@/lib/analytics/session';
 
 const VISITOR_KEY = 'portfolio:visitor:count';
 const VISITOR_LOG_KEY = 'portfolio:visitor:logs';
@@ -26,13 +27,18 @@ export async function GET() {
     // Get recent logs (last 10)
     const logs = await kv.lrange<VisitorLog>(VISITOR_LOG_KEY, 0, 9);
     
+    // Get active sessions count
+    const sessions = await getActiveSessions();
+    const activeSessions = sessions.length;
+    
     return NextResponse.json({ 
       total: count || 0,
-      recentVisitors: logs || []
+      recentVisitors: logs || [],
+      activeSessions,
     });
   } catch (error) {
     console.error('Failed to get visitor count:', error);
-    return NextResponse.json({ total: 0, recentVisitors: [] }, { status: 200 });
+    return NextResponse.json({ total: 0, recentVisitors: [], activeSessions: 0 }, { status: 200 });
   }
 }
 
