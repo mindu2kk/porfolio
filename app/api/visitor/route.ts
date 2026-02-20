@@ -3,6 +3,9 @@ import { kv } from '@vercel/kv';
 import { geolocation } from '@vercel/functions';
 import type { NextRequest } from 'next/server';
 import { sendVisitorNotification } from '@/lib/email';
+import { visitorRateLimit, getClientIdentifier } from '@/lib/ratelimit';
+import { sanitizeString } from '@/lib/validation';
+import { logAudit } from '@/lib/audit';
 
 const VISITOR_KEY = 'portfolio:visitor:count';
 const VISITOR_LOG_KEY = 'portfolio:visitor:logs';
@@ -35,12 +38,24 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
+    // 1. Rate limiting - prevent spam
+    const identifier = getClientIdentifier(request);
+    const { success: rateLimitOk } = await visitorRateLimit.limit(identifier);
+    
+    if (!rateLimitOk) {
+      await logAudit('visitor_rate_limited', identifier, request.headers.get('user-agent') || 'Unknown', false);
+      return NextResponse.json(
+        { error: 'Too many requests. Please try again later.' },
+        { status: 429 }
+      );
+    }
+    
     // Increment counter
     const count = await kv.incr(VISITOR_KEY);
     
     // Get visitor info with ALL available data
-    const userAgent = request.headers.get('user-agent') || 'Unknown';
-    const referer = request.headers.get('referer') || 'Direct';
+    const userAgent = sanitizeString(request.headers.get('user-agent') || 'Unknown');
+    const referer = sanitizeString(request.headers.get('referer') || 'Direct');
     
     // Try multiple ways to get IP
     const xForwardedFor = request.headers.get('x-forwarded-for');
@@ -311,6 +326,14 @@ export async function POST(request: NextRequest) {
     };
     
     console.log('🎯 New Visitor (FULL DATA):', JSON.stringify(visitorInfo, null, 2));
+    
+    // 2. Audit logging - track visitor
+    await logAudit('visitor_tracked', ip, userAgent, true, {
+      country,
+      city,
+      dataSource,
+      count,
+    });
     
     // Send email notification - USE THE IMPORTED FUNCTION DIRECTLY
     if (process.env.RESEND_API_KEY && process.env.NOTIFICATION_EMAIL) {
