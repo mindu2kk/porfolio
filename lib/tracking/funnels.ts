@@ -206,7 +206,7 @@ function matchesStep(event: TrackingEvent, step: FunnelStep): boolean {
     return false;
   }
 
-  // Check URL pattern
+  // Check URL pattern (more flexible - allow missing page metadata)
   if (step.urlPattern && event.metadata.page) {
     const regex = new RegExp(step.urlPattern);
     if (!regex.test(event.metadata.page)) {
@@ -214,18 +214,35 @@ function matchesStep(event: TrackingEvent, step: FunnelStep): boolean {
     }
   }
 
-  // Check element ID
-  if (step.elementId && event.metadata.elementId !== step.elementId) {
-    return false;
+  // Check element ID (more flexible - allow partial match)
+  if (step.elementId) {
+    const elementId = event.metadata.elementId;
+    const elementText = event.metadata.elementText?.toLowerCase() || '';
+    const elementTag = event.metadata.elementTag?.toLowerCase() || '';
+    
+    // Match by ID, text content, or tag
+    if (elementId !== step.elementId && 
+        !elementText.includes(step.elementId.toLowerCase()) &&
+        elementTag !== step.elementId) {
+      return false;
+    }
   }
 
-  // Special handling for scroll depth
+  // Special handling for scroll depth - match depth ranges
   if (event.type === 'scroll_depth') {
     const depth = event.metadata.depth;
-    if (step.name.includes('25%') && depth !== 25) return false;
-    if (step.name.includes('50%') && depth !== 50) return false;
-    if (step.name.includes('75%') && depth !== 75) return false;
-    if (step.name.includes('100%') && depth !== 100) return false;
+    if (typeof depth !== 'number') return false;
+    
+    // Match specific depths or ranges
+    if (step.name.includes('25%') && depth >= 25 && depth < 50) return true;
+    if (step.name.includes('50%') && depth >= 50 && depth < 75) return true;
+    if (step.name.includes('75%') && depth >= 75 && depth < 100) return true;
+    if (step.name.includes('100%') && depth === 100) return true;
+    if (step.name.includes('Scroll to Projects') && depth >= 25) return true; // Any scroll counts
+    if (step.name.includes('Contact Section') && depth >= 75) return true; // Deep scroll
+    
+    // If no specific depth mentioned, any scroll depth matches
+    if (!step.name.match(/\d+%/)) return true;
   }
 
   return true;
