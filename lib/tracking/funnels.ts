@@ -201,48 +201,75 @@ export async function analyzeFunnel(
 
 // Check if event matches funnel step
 function matchesStep(event: TrackingEvent, step: FunnelStep): boolean {
-  // Check event type
+  // Check event type first
   if (step.eventType && event.type !== step.eventType) {
     return false;
   }
 
-  // Check URL pattern (more flexible - allow missing page metadata)
-  if (step.urlPattern && event.metadata.page) {
+  // For scroll_depth events, check depth requirements
+  if (event.type === 'scroll_depth' && step.eventType === 'scroll_depth') {
+    const depth = event.metadata.depth;
+    if (typeof depth !== 'number') return false;
+    
+    // Match based on step name
+    if (step.name.includes('Scroll to Projects')) {
+      // Any scroll >= 25% counts as scrolling to projects
+      return depth >= 25;
+    }
+    if (step.name.includes('Contact Section')) {
+      // Deep scroll >= 75% counts as reaching contact section
+      return depth >= 75;
+    }
+    if (step.name.includes('25%')) {
+      // Match 25% milestone
+      return depth === 25;
+    }
+    if (step.name.includes('50%')) {
+      // Match 50% milestone
+      return depth === 50;
+    }
+    if (step.name.includes('75%')) {
+      // Match 75% milestone
+      return depth === 75;
+    }
+    if (step.name.includes('100%')) {
+      // Match 100% milestone
+      return depth === 100;
+    }
+    
+    // If no specific depth mentioned, don't match
+    return false;
+  }
+
+  // Check URL pattern (optional if page metadata missing)
+  if (step.urlPattern) {
+    if (!event.metadata.page) {
+      // If URL pattern required but no page metadata, still allow match for page_view events
+      if (event.type === 'page_view') {
+        return true; // Assume homepage if no page specified
+      }
+      return false;
+    }
     const regex = new RegExp(step.urlPattern);
     if (!regex.test(event.metadata.page)) {
       return false;
     }
   }
 
-  // Check element ID (more flexible - allow partial match)
-  if (step.elementId) {
+  // Check element ID for click events
+  if (step.elementId && event.type === 'click') {
     const elementId = event.metadata.elementId;
     const elementText = event.metadata.elementText?.toLowerCase() || '';
     const elementTag = event.metadata.elementTag?.toLowerCase() || '';
     
-    // Match by ID, text content, or tag
-    if (elementId !== step.elementId && 
-        !elementText.includes(step.elementId.toLowerCase()) &&
-        elementTag !== step.elementId) {
-      return false;
+    // Match by ID, text content containing keyword, or tag
+    const keyword = step.elementId.toLowerCase();
+    if (elementId === step.elementId || 
+        elementText.includes(keyword) ||
+        elementTag === keyword) {
+      return true;
     }
-  }
-
-  // Special handling for scroll depth - match depth ranges
-  if (event.type === 'scroll_depth') {
-    const depth = event.metadata.depth;
-    if (typeof depth !== 'number') return false;
-    
-    // Match specific depths or ranges
-    if (step.name.includes('25%') && depth >= 25 && depth < 50) return true;
-    if (step.name.includes('50%') && depth >= 50 && depth < 75) return true;
-    if (step.name.includes('75%') && depth >= 75 && depth < 100) return true;
-    if (step.name.includes('100%') && depth === 100) return true;
-    if (step.name.includes('Scroll to Projects') && depth >= 25) return true; // Any scroll counts
-    if (step.name.includes('Contact Section') && depth >= 75) return true; // Deep scroll
-    
-    // If no specific depth mentioned, any scroll depth matches
-    if (!step.name.match(/\d+%/)) return true;
+    return false;
   }
 
   return true;
