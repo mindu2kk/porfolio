@@ -7,6 +7,7 @@ import { visitorRateLimit, getClientIdentifier } from '@/lib/ratelimit';
 import { sanitizeString } from '@/lib/validation';
 import { logAudit } from '@/lib/audit';
 import { getActiveSessions } from '@/lib/analytics/session';
+import { parseUserAgent, getDeviceCategory } from '@/lib/analytics/device';
 
 const VISITOR_KEY = 'portfolio:visitor:count';
 const VISITOR_LOG_KEY = 'portfolio:visitor:logs';
@@ -18,6 +19,9 @@ interface VisitorLog {
   ip: string;
   country: string;
   city: string;
+  browser?: string;
+  os?: string;
+  device?: string;
 }
 
 export async function GET() {
@@ -298,6 +302,10 @@ export async function POST(request: NextRequest) {
       allHeaders[key] = value;
     });
     
+    // Parse device information
+    const deviceInfo = parseUserAgent(userAgent);
+    const deviceCategory = getDeviceCategory(deviceInfo);
+    
     // Create log entry
     const logEntry: VisitorLog = {
       timestamp: new Date().toISOString(),
@@ -306,6 +314,9 @@ export async function POST(request: NextRequest) {
       ip,
       country,
       city,
+      browser: `${deviceInfo.browser?.name} ${deviceInfo.browser?.major}`,
+      os: deviceInfo.os?.name,
+      device: deviceCategory,
     };
     
     // Save to logs (keep last 100)

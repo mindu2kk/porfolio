@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { kv } from '@vercel/kv';
+import { calculateDeviceStats } from '@/lib/analytics/device';
 
 const VISITOR_LOG_KEY = 'portfolio:visitor:logs';
 
@@ -10,6 +11,9 @@ interface VisitorLog {
   ip: string;
   country: string;
   city: string;
+  browser?: string;
+  os?: string;
+  device?: string;
 }
 
 export async function GET() {
@@ -21,6 +25,8 @@ export async function GET() {
       return NextResponse.json({
         byCountry: [],
         byDevice: [],
+        byBrowser: [],
+        byOS: [],
         byHour: [],
         byDay: [],
       });
@@ -38,15 +44,11 @@ export async function GET() {
       .sort((a, b) => b.value - a.value)
       .slice(0, 10);
     
-    // Count by device
-    const deviceMap = new Map<string, number>();
-    logs.forEach(log => {
-      const device = log.userAgent.includes('Mobile') ? 'Mobile' : 'Desktop';
-      const count = deviceMap.get(device) || 0;
-      deviceMap.set(device, count + 1);
-    });
-    const byDevice = Array.from(deviceMap.entries())
-      .map(([name, value]) => ({ name, value }));
+    // Count by device using new device library
+    const deviceStats = calculateDeviceStats(logs);
+    const byDevice = deviceStats.devices;
+    const byBrowser = deviceStats.browsers;
+    const byOS = deviceStats.os;
     
     // Count by hour (last 24 hours) - FIXED LOGIC
     const now = new Date();
@@ -111,6 +113,8 @@ export async function GET() {
     return NextResponse.json({
       byCountry,
       byDevice,
+      byBrowser,
+      byOS,
       byHour,
       byDay,
     });
@@ -119,6 +123,8 @@ export async function GET() {
     return NextResponse.json({
       byCountry: [],
       byDevice: [],
+      byBrowser: [],
+      byOS: [],
       byHour: [],
       byDay: [],
     }, { status: 200 });
