@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { kv } from '@vercel/kv';
 import { calculateDeviceStats } from '@/lib/analytics/device';
+import { calculateTrafficSources } from '@/lib/analytics/traffic';
 
 const VISITOR_LOG_KEY = 'portfolio:visitor:logs';
 
@@ -27,6 +28,8 @@ export async function GET() {
         byDevice: [],
         byBrowser: [],
         byOS: [],
+        byTrafficSource: [],
+        byTrafficType: [],
         byHour: [],
         byDay: [],
       });
@@ -49,6 +52,11 @@ export async function GET() {
     const byDevice = deviceStats.devices;
     const byBrowser = deviceStats.browsers;
     const byOS = deviceStats.os;
+    
+    // Calculate traffic sources
+    const trafficStats = calculateTrafficSources(logs);
+    const byTrafficSource = trafficStats.sources;
+    const byTrafficType = trafficStats.byType;
     
     // Count by hour (last 24 hours) - FIXED LOGIC
     const now = new Date();
@@ -115,6 +123,8 @@ export async function GET() {
       byDevice,
       byBrowser,
       byOS,
+      byTrafficSource,
+      byTrafficType,
       byHour,
       byDay,
     });
@@ -125,6 +135,8 @@ export async function GET() {
       byDevice: [],
       byBrowser: [],
       byOS: [],
+      byTrafficSource: [],
+      byTrafficType: [],
       byHour: [],
       byDay: [],
     }, { status: 200 });

@@ -31,6 +31,8 @@ interface Stats {
   byDevice: { name: string; value: number }[];
   byBrowser: { name: string; value: number }[];
   byOS: { name: string; value: number }[];
+  byTrafficSource: { name: string; value: number }[];
+  byTrafficType: { name: string; value: number }[];
   byHour: { hour: string; visitors: number }[];
   byDay: { day: string; visitors: number }[];
 }
@@ -63,7 +65,7 @@ const COLORS = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', '#F7DC6F'
 
 export default function VisitorLogsPage() {
   const [data, setData] = useState<VisitorData>({ total: 0, recentVisitors: [] });
-  const [stats, setStats] = useState<Stats>({ byCountry: [], byDevice: [], byBrowser: [], byOS: [], byHour: [], byDay: [] });
+  const [stats, setStats] = useState<Stats>({ byCountry: [], byDevice: [], byBrowser: [], byOS: [], byTrafficSource: [], byTrafficType: [], byHour: [], byDay: [] });
   const [health, setHealth] = useState<HealthStatus | null>(null);
   const [behavior, setBehavior] = useState<BehaviorMetrics | null>(null);
   const [loading, setLoading] = useState(true);
@@ -436,6 +438,80 @@ export default function VisitorLogsPage() {
                       strokeWidth={2}
                     >
                       {stats.byOS.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip 
+                      contentStyle={{ 
+                        background: '#1a1a1a', 
+                        border: '2px solid #fff',
+                        color: '#fff',
+                        borderRadius: '4px'
+                      }} 
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+                  No data yet
+                </div>
+              )}
+            </div>
+
+            {/* Traffic Sources (NEW!) */}
+            <div className="border-solid-animated border-border p-6 bg-background">
+              <h3 className="text-xl font-bold mb-4">🔗 Top Traffic Sources</h3>
+              {stats.byTrafficSource && stats.byTrafficSource.length > 0 ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={stats.byTrafficSource}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#444" />
+                    <XAxis 
+                      dataKey="name" 
+                      stroke="#999" 
+                      style={{ fontSize: '10px' }}
+                      angle={-45}
+                      textAnchor="end"
+                      height={80}
+                    />
+                    <YAxis stroke="#999" />
+                    <Tooltip 
+                      contentStyle={{ 
+                        background: '#1a1a1a', 
+                        border: '2px solid #fff',
+                        color: '#fff',
+                        borderRadius: '4px'
+                      }}
+                      cursor={{ fill: 'rgba(255, 255, 255, 0.1)' }}
+                    />
+                    <Bar dataKey="value" fill="#98D8C8" radius={[8, 8, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+                  No data yet
+                </div>
+              )}
+            </div>
+
+            {/* Traffic by Type (NEW!) */}
+            <div className="border-dashed-animated border-border p-6 bg-background">
+              <h3 className="text-xl font-bold mb-4">📊 Traffic by Type</h3>
+              {stats.byTrafficType && stats.byTrafficType.length > 0 ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie
+                      data={stats.byTrafficType}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={true}
+                      label={({ name, percent }) => `${name}: ${((percent || 0) * 100).toFixed(1)}%`}
+                      outerRadius={100}
+                      fill="#8884d8"
+                      dataKey="value"
+                      stroke="#fff"
+                      strokeWidth={2}
+                    >
+                      {stats.byTrafficType.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                       ))}
                     </Pie>
