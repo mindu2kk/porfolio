@@ -89,17 +89,25 @@ export default function VisitorLogsPage() {
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-4xl font-bold uppercase mb-2">Visitor Logs</h1>
+            <h1 className="text-4xl font-bold uppercase mb-2">Visitor Dashboard</h1>
             <p className="text-muted-foreground">
               Real-time visitor tracking and analytics
             </p>
           </div>
-          <Link
-            href="/"
-            className="px-6 py-2 border-dotted-thick border-border hover:bg-foreground hover:text-background transition-all duration-300"
-          >
-            Back to Home
-          </Link>
+          <div className="flex gap-4">
+            <Link
+              href="/admin/audit"
+              className="px-6 py-2 border-dotted-thick border-border hover:bg-foreground hover:text-background transition-all duration-300"
+            >
+              Audit Logs
+            </Link>
+            <Link
+              href="/"
+              className="px-6 py-2 border-dotted-thick border-border hover:bg-foreground hover:text-background transition-all duration-300"
+            >
+              Home
+            </Link>
+          </div>
         </div>
 
         {/* Stats */}
