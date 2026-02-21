@@ -26,24 +26,44 @@ interface Stats {
   byDay: { day: string; visitors: number }[];
 }
 
+interface HealthStatus {
+  status: 'healthy' | 'degraded' | 'down';
+  checks: {
+    kv: boolean;
+    api: boolean;
+    rateLimit: boolean;
+  };
+  metrics: {
+    totalVisitors: number;
+    rateLimitHits: number;
+    errorRate: number;
+    uptime: string;
+  };
+  timestamp: string;
+}
+
 const COLORS = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E2'];
 
 export default function VisitorLogsPage() {
   const [data, setData] = useState<VisitorData>({ total: 0, recentVisitors: [] });
   const [stats, setStats] = useState<Stats>({ byCountry: [], byDevice: [], byHour: [], byDay: [] });
+  const [health, setHealth] = useState<HealthStatus | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [visitorRes, statsRes] = await Promise.all([
+        const [visitorRes, statsRes, healthRes] = await Promise.all([
           fetch('/api/visitor'),
           fetch('/api/visitor/stats'),
+          fetch('/api/health'),
         ]);
         const visitorData = await visitorRes.json();
         const statsData = await statsRes.json();
+        const healthData = await healthRes.json();
         setData(visitorData);
         setStats(statsData);
+        setHealth(healthData);
       } catch (error) {
         console.error('Failed to fetch visitor data:', error);
       } finally {
@@ -109,6 +129,69 @@ export default function VisitorLogsPage() {
             </Link>
           </div>
         </div>
+
+        {/* System Health */}
+        {health && (
+          <div className="border-solid-animated border-border p-6 mb-8">
+            <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
+              🏥 System Health
+              <span className={`text-sm px-3 py-1 rounded ${
+                health.status === 'healthy' ? 'bg-green-500 text-white' :
+                health.status === 'degraded' ? 'bg-yellow-500 text-white' :
+                'bg-red-500 text-white'
+              }`}>
+                {health.status.toUpperCase()}
+              </span>
+            </h2>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Health Checks */}
+              <div className="p-4 border-2 border-border">
+                <div className="text-sm text-muted-foreground mb-2">KV Database</div>
+                <div className="flex items-center gap-2">
+                  <span className={`text-2xl ${health.checks.kv ? 'text-green-500' : 'text-red-500'}`}>
+                    {health.checks.kv ? '✓' : '✗'}
+                  </span>
+                  <span className="font-bold">{health.checks.kv ? 'Connected' : 'Down'}</span>
+                </div>
+              </div>
+              
+              <div className="p-4 border-2 border-border">
+                <div className="text-sm text-muted-foreground mb-2">API Status</div>
+                <div className="flex items-center gap-2">
+                  <span className={`text-2xl ${health.checks.api ? 'text-green-500' : 'text-red-500'}`}>
+                    {health.checks.api ? '✓' : '✗'}
+                  </span>
+                  <span className="font-bold">{health.checks.api ? 'Operational' : 'Down'}</span>
+                </div>
+              </div>
+              
+              <div className="p-4 border-2 border-border">
+                <div className="text-sm text-muted-foreground mb-2">Rate Limiting</div>
+                <div className="flex items-center gap-2">
+                  <span className={`text-2xl ${health.checks.rateLimit ? 'text-green-500' : 'text-yellow-500'}`}>
+                    {health.checks.rateLimit ? '✓' : '⚠'}
+                  </span>
+                  <span className="font-bold">{health.metrics.rateLimitHits} hits</span>
+                </div>
+              </div>
+              
+              <div className="p-4 border-2 border-border">
+                <div className="text-sm text-muted-foreground mb-2">Error Rate</div>
+                <div className="flex items-center gap-2">
+                  <span className={`text-2xl ${health.metrics.errorRate < 5 ? 'text-green-500' : health.metrics.errorRate < 10 ? 'text-yellow-500' : 'text-red-500'}`}>
+                    {health.metrics.errorRate < 5 ? '✓' : health.metrics.errorRate < 10 ? '⚠' : '✗'}
+                  </span>
+                  <span className="font-bold">{health.metrics.errorRate}%</span>
+                </div>
+              </div>
+            </div>
+            
+            <div className="mt-4 text-sm text-muted-foreground">
+              Uptime: {health.metrics.uptime} • Last check: {new Date(health.timestamp).toLocaleTimeString('vi-VN')}
+            </div>
+          </div>
+        )}
 
         {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
@@ -179,7 +262,7 @@ export default function VisitorLogsPage() {
                       cx="50%"
                       cy="50%"
                       labelLine={true}
-                      label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(1)}%`}
+                      label={({ name, percent }) => `${name}: ${((percent || 0) * 100).toFixed(1)}%`}
                       outerRadius={100}
                       fill="#8884d8"
                       dataKey="value"
