@@ -11,6 +11,8 @@ export default function AnalyticsTracker() {
   const idleTimeRef = useRef<number>(0);
   const lastActivityRef = useRef<number>(Date.now());
   const isVisibleRef = useRef<boolean>(true);
+  const scrollDepthsTrackedRef = useRef<Set<number>>(new Set());
+  const isIdleRef = useRef<boolean>(false);
 
   useEffect(() => {
     // Initialize session on mount
@@ -24,6 +26,12 @@ export default function AnalyticsTracker() {
 
     // Setup idle detection
     setupIdleDetection();
+
+    // Setup scroll depth tracking
+    setupScrollDepthTracking();
+
+    // Setup click tracking
+    setupClickTracking();
 
     // Setup beforeunload (tab close)
     setupBeforeUnload();
@@ -141,9 +149,35 @@ export default function AnalyticsTracker() {
 
   // Setup idle detection
   function setupIdleDetection() {
+    let idleTimeout: NodeJS.Timeout | null = null;
+
     const resetActivity = () => {
+      const wasIdle = isIdleRef.current;
+      
       lastActivityRef.current = Date.now();
       idleTimeRef.current = 0;
+      isIdleRef.current = false;
+
+      // Track idle_end if was idle
+      if (wasIdle) {
+        trackEvent('idle_end', {
+          timestamp: Date.now(),
+        });
+        console.log('🟢 User active again');
+      }
+
+      // Reset idle timeout
+      if (idleTimeout) {
+        clearTimeout(idleTimeout);
+      }
+
+      idleTimeout = setTimeout(() => {
+        isIdleRef.current = true;
+        trackEvent('idle_start', {
+          timestamp: Date.now(),
+        });
+        console.log('💤 User idle detected');
+      }, 60000); // 60 seconds
     };
 
     // Track user activity
@@ -152,10 +186,124 @@ export default function AnalyticsTracker() {
       document.addEventListener(event, resetActivity, { passive: true });
     });
 
+    // Initial timeout
+    resetActivity();
+
     return () => {
       events.forEach(event => {
         document.removeEventListener(event, resetActivity);
       });
+      if (idleTimeout) {
+        clearTimeout(idleTimeout);
+      }
+    };
+  }
+
+  // Setup scroll depth tracking
+  function setupScrollDepthTracking() {
+    const handleScroll = () => {
+      const windowHeight = window.innerHeight;
+      const documentHeight = document.documentElement.scrollHeight;
+      const scrollTop = window.scrollY || document.documentElement.scrollTop;
+      
+      // Calculate scroll percentage
+      const scrollableHeight = documentHeight - windowHeight;
+      const scrollPercentage = scrollableHeight > 0 
+        ? Math.round((scrollTop / scrollableHeight) * 100)
+        : 100;
+
+      // Track milestones: 25%, 50%, 75%, 100%
+      const milestones = [25, 50, 75, 100];
+      
+      for (const milestone of milestones) {
+        if (scrollPercentage >= milestone && !scrollDepthsTrackedRef.current.has(milestone)) {
+          scrollDepthsTrackedRef.current.add(milestone);
+          
+          trackEvent('scroll_depth', {
+            depth: milestone,
+            page: window.location.pathname,
+            timestamp: Date.now(),
+          });
+
+          console.log(`📜 Scroll depth: ${milestone}%`);
+        }
+      }
+    };
+
+    // Throttle scroll events
+    let scrollTimeout: NodeJS.Timeout | null = null;
+    const throttledScroll = () => {
+      if (scrollTimeout) return;
+      
+      scrollTimeout = setTimeout(() => {
+        handleScroll();
+        scrollTimeout = null;
+      }, 500); // Check every 500ms
+    };
+
+    window.addEventListener('scroll', throttledScroll, { passive: true });
+
+    // Check initial scroll position
+    handleScroll();
+
+    return () => {
+      window.removeEventListener('scroll', throttledScroll);
+      if (scrollTimeout) {
+        clearTimeout(scrollTimeout);
+      }
+    };
+  }
+
+  // Setup click tracking
+  function setupClickTracking() {
+    const handleClick = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      
+      // Get element info
+      const elementId = target.id || undefined;
+      const elementTag = target.tagName.toLowerCase();
+      const elementText = target.textContent?.slice(0, 50) || undefined;
+      const elementClasses = target.className || undefined;
+      
+      // Get normalized position (0-1)
+      const x = event.clientX / window.innerWidth;
+      const y = event.clientY / window.innerHeight;
+      
+      // Get section (closest parent with id or data-section)
+      let section = undefined;
+      let parent = target.parentElement;
+      while (parent && !section) {
+        if (parent.id) {
+          section = parent.id;
+        } else if (parent.dataset.section) {
+          section = parent.dataset.section;
+        }
+        parent = parent.parentElement;
+      }
+
+      trackEvent('click', {
+        elementId,
+        elementTag,
+        elementText,
+        elementClasses,
+        x: Math.round(x * 1000) / 1000, // 3 decimal places
+        y: Math.round(y * 1000) / 1000,
+        section,
+        page: window.location.pathname,
+        timestamp: Date.now(),
+      });
+
+      console.log('🖱️ Click tracked:', {
+        element: elementTag,
+        id: elementId,
+        position: `${Math.round(x * 100)}%, ${Math.round(y * 100)}%`,
+      });
+    };
+
+    document.addEventListener('click', handleClick, { passive: true });
+
+    return () => {
+      document.removeEventListener('click', handleClick);
     };
   }
 
