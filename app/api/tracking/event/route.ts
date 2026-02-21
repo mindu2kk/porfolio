@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { kv } from '@vercel/kv';
 import { createEvent, type EventType } from '@/lib/tracking/events';
-import { getSession } from '@/lib/tracking/session';
+import { getSession, updateSessionMetrics } from '@/lib/tracking/session';
 
 export async function POST(request: NextRequest) {
   try {
@@ -44,6 +44,9 @@ export async function POST(request: NextRequest) {
     // Add event to session
     session.events.push(event.id);
     await kv.set(`session:${sessionId}`, session, { ex: 30 * 60 });
+
+    // Update session metrics based on event type
+    await updateSessionMetrics(sessionId, type, metadata || {});
 
     return NextResponse.json({
       success: true,
