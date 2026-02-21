@@ -187,11 +187,30 @@
 - Integrated tracker into root layout
 - All builds successful, 0 errors
 
-### Week 2: Behavior (HIGH)
-4. ✅ Scroll Depth Tracking
-5. ✅ Click Tracking
-6. ✅ Idle Detection
-7. ✅ Tab Visibility
+### Week 2: Behavior (HIGH) ✅ COMPLETED
+4. ✅ Scroll Depth Tracking - DONE
+5. ✅ Click Tracking - DONE
+6. ✅ Idle Detection - DONE
+7. ✅ Tab Visibility - DONE
+
+**Implementation Details:**
+- Enhanced `components/tracking/AnalyticsTracker.tsx`:
+  - Scroll depth tracking (25%, 50%, 75%, 100%)
+  - Click tracking with heatmap data (element, position, section)
+  - Enhanced idle detection with idle_start/idle_end events
+  - Tab visibility tracking with state changes
+- Updated `lib/tracking/session.ts`:
+  - Added behavior metrics (maxScrollDepth, clickCount, idleEvents, visibilityChanges)
+  - Added `updateSessionMetrics()` function
+- Updated `app/api/tracking/event/route.ts`:
+  - Automatic session metrics updates on events
+- Created `app/api/tracking/behavior/route.ts`:
+  - Scroll depth distribution
+  - Click heatmap data by page
+  - Top clicked elements
+  - Idle/visibility analysis
+  - Engagement scoring (0-100)
+- All builds successful, 0 errors
 
 ### Week 3: Performance (MEDIUM)
 8. ✅ Network Intelligence
@@ -372,6 +391,6 @@ Bạn muốn bắt đầu với Phase nào?
 ---
 
 **Created:** February 20, 2026  
-**Status:** Phase 1 Complete ✅  
+**Status:** Phase 2 Complete ✅  
 **Last Updated:** February 21, 2026  
-**Ready to implement:** Phase 2 (User Behavior Tracking)
+**Ready to implement:** Phase 3 (Performance & Environment)
