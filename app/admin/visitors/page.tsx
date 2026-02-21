@@ -3,6 +3,13 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { BarChart, Bar, PieChart, Pie, Cell, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import dynamic from 'next/dynamic';
+
+// Dynamically import map (client-side only)
+const VisitorMap = dynamic(() => import('@/components/admin/VisitorMap'), {
+  ssr: false,
+  loading: () => <div className="h-[400px] flex items-center justify-center border-2 border-border bg-muted"><div className="text-muted-foreground">Loading map...</div></div>
+});
 
 interface VisitorLog {
   timestamp: string;
@@ -360,6 +367,17 @@ export default function VisitorLogsPage() {
                   No data yet
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* Interactive World Map */}
+        {!loading && stats.byCountry.length > 0 && (
+          <div className="border-pulse-animated border-border p-6 mb-8 bg-background">
+            <h3 className="text-xl font-bold mb-4">🗺️ Visitor Locations (Interactive Map)</h3>
+            <VisitorMap visitors={stats.byCountry.map(c => ({ country: c.name, count: c.value }))} />
+            <div className="mt-4 text-sm text-muted-foreground">
+              Click on markers to see visitor count • Powered by OpenStreetMap
             </div>
           </div>
         )}
