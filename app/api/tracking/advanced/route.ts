@@ -89,7 +89,12 @@ export async function GET() {
       } : null,
       replays: {
         summaries: replaySummaries.slice(0, 10),
-        patterns: replayPatterns,
+        patterns: replayPatterns.map(p => ({
+          pattern: p.pattern,
+          count: p.frequency, // Map frequency to count
+          avgEngagement: Math.min(Math.round((p.frequency / recentSessionIds.length) * 100), 100), // Calculate engagement percentage
+          description: p.description,
+        })),
       },
     });
   } catch (error) {
