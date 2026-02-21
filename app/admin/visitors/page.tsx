@@ -154,10 +154,15 @@ interface AdvancedAnalytics {
     cohorts: {
       month: string;
       totalUsers: number;
-      retention: number[];
+      retention: {
+        period: number;
+        periodLabel: string;
+        activeUsers: number;
+        retentionRate: number;
+      }[];
     }[];
     overallRetention: {
-      month: number;
+      period: number;
       avgRetentionRate: number;
     }[];
   } | null;
@@ -889,7 +894,8 @@ export default function VisitorLogsPage() {
                           <td className="p-3 font-bold border border-border">{cohort.month}</td>
                           <td className="p-3 text-center border border-border">{cohort.totalUsers}</td>
                           {[0, 1, 2, 3, 4, 5].map((monthIdx) => {
-                            const rate = cohort.retention[monthIdx];
+                            const retentionData = cohort.retention[monthIdx];
+                            const rate = retentionData?.retentionRate;
                             return (
                               <td key={monthIdx} className="p-3 text-center border border-border">
                                 {rate !== undefined ? (
@@ -914,16 +920,17 @@ export default function VisitorLogsPage() {
                           <td className="p-3 border border-border" colSpan={2}>Overall Average</td>
                           {[0, 1, 2, 3, 4, 5].map((monthIdx) => {
                             const item = advanced.cohorts.overallRetention[monthIdx];
+                            const rate = item?.avgRetentionRate;
                             return (
                               <td key={monthIdx} className="p-3 text-center border border-border">
-                                {item !== undefined ? (
+                                {rate !== undefined ? (
                                   <span className={`${
-                                    item.avgRetentionRate >= 80 ? 'text-green-500' :
-                                    item.avgRetentionRate >= 50 ? 'text-yellow-500' :
-                                    item.avgRetentionRate >= 20 ? 'text-orange-500' :
+                                    rate >= 80 ? 'text-green-500' :
+                                    rate >= 50 ? 'text-yellow-500' :
+                                    rate >= 20 ? 'text-orange-500' :
                                     'text-red-500'
                                   }`}>
-                                    {item.avgRetentionRate}%
+                                    {rate}%
                                   </span>
                                 ) : (
                                   <span className="text-muted-foreground">-</span>
