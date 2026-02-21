@@ -51,28 +51,40 @@ interface HealthStatus {
   timestamp: string;
 }
 
+interface BehaviorMetrics {
+  averageSessionDuration: number;
+  bounceRate: number;
+  pagesPerSession: number;
+  engagementScore: number;
+  returnVisitorRate: number;
+}
+
 const COLORS = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E2'];
 
 export default function VisitorLogsPage() {
   const [data, setData] = useState<VisitorData>({ total: 0, recentVisitors: [] });
   const [stats, setStats] = useState<Stats>({ byCountry: [], byDevice: [], byBrowser: [], byOS: [], byHour: [], byDay: [] });
   const [health, setHealth] = useState<HealthStatus | null>(null);
+  const [behavior, setBehavior] = useState<BehaviorMetrics | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [visitorRes, statsRes, healthRes] = await Promise.all([
+        const [visitorRes, statsRes, healthRes, behaviorRes] = await Promise.all([
           fetch('/api/visitor'),
           fetch('/api/visitor/stats'),
           fetch('/api/health'),
+          fetch('/api/analytics/behavior'),
         ]);
         const visitorData = await visitorRes.json();
         const statsData = await statsRes.json();
         const healthData = await healthRes.json();
+        const behaviorData = await behaviorRes.json();
         setData(visitorData);
         setStats(statsData);
         setHealth(healthData);
+        setBehavior(behaviorData);
       } catch (error) {
         console.error('Failed to fetch visitor data:', error);
       } finally {
@@ -198,6 +210,77 @@ export default function VisitorLogsPage() {
             
             <div className="mt-4 text-sm text-muted-foreground">
               Uptime: {health.metrics.uptime} • Last check: {new Date(health.timestamp).toLocaleTimeString('vi-VN')}
+            </div>
+          </div>
+        )}
+
+        {/* User Behavior Analytics (NEW!) */}
+        {behavior && (
+          <div className="border-wave-animated border-border p-6 mb-8">
+            <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
+              🎭 User Behavior Analytics
+              <span className={`text-sm px-3 py-1 rounded ${
+                behavior.engagementScore >= 80 ? 'bg-green-500 text-white' :
+                behavior.engagementScore >= 50 ? 'bg-blue-500 text-white' :
+                behavior.engagementScore >= 20 ? 'bg-yellow-500 text-white' :
+                'bg-red-500 text-white'
+              }`}>
+                Score: {behavior.engagementScore}/100
+              </span>
+            </h2>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+              <div className="p-4 border-2 border-border">
+                <div className="text-sm text-muted-foreground mb-2">Avg Session Duration</div>
+                <div className="text-2xl font-bold">
+                  {behavior.averageSessionDuration < 60 
+                    ? `${behavior.averageSessionDuration}s`
+                    : `${Math.floor(behavior.averageSessionDuration / 60)}m ${behavior.averageSessionDuration % 60}s`
+                  }
+                </div>
+              </div>
+              
+              <div className="p-4 border-2 border-border">
+                <div className="text-sm text-muted-foreground mb-2">Bounce Rate</div>
+                <div className="text-2xl font-bold">
+                  <span className={behavior.bounceRate < 40 ? 'text-green-500' : behavior.bounceRate < 70 ? 'text-yellow-500' : 'text-red-500'}>
+                    {behavior.bounceRate}%
+                  </span>
+                </div>
+              </div>
+              
+              <div className="p-4 border-2 border-border">
+                <div className="text-sm text-muted-foreground mb-2">Pages/Session</div>
+                <div className="text-2xl font-bold">
+                  {behavior.pagesPerSession.toFixed(1)}
+                </div>
+              </div>
+              
+              <div className="p-4 border-2 border-border">
+                <div className="text-sm text-muted-foreground mb-2">Return Visitors</div>
+                <div className="text-2xl font-bold">
+                  <span className={behavior.returnVisitorRate > 30 ? 'text-green-500' : 'text-yellow-500'}>
+                    {behavior.returnVisitorRate}%
+                  </span>
+                </div>
+              </div>
+              
+              <div className="p-4 border-2 border-border">
+                <div className="text-sm text-muted-foreground mb-2">Engagement</div>
+                <div className="text-2xl font-bold">
+                  <span className={
+                    behavior.engagementScore >= 80 ? 'text-green-500' :
+                    behavior.engagementScore >= 50 ? 'text-blue-500' :
+                    behavior.engagementScore >= 20 ? 'text-yellow-500' :
+                    'text-red-500'
+                  }>
+                    {behavior.engagementScore >= 80 ? 'Very High' :
+                     behavior.engagementScore >= 50 ? 'High' :
+                     behavior.engagementScore >= 20 ? 'Medium' :
+                     'Low'}
+                  </span>
+                </div>
+              </div>
             </div>
           </div>
         )}
