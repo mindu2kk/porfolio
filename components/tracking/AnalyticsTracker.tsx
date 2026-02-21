@@ -13,6 +13,7 @@ export default function AnalyticsTracker() {
   const isVisibleRef = useRef<boolean>(true);
   const scrollDepthsTrackedRef = useRef<Set<number>>(new Set());
   const isIdleRef = useRef<boolean>(false);
+  const performanceTrackedRef = useRef<boolean>(false);
 
   useEffect(() => {
     // Initialize session on mount
@@ -32,6 +33,12 @@ export default function AnalyticsTracker() {
 
     // Setup click tracking
     setupClickTracking();
+
+    // Setup network and hardware tracking
+    trackEnvironment();
+
+    // Setup performance tracking
+    trackPerformance();
 
     // Setup beforeunload (tab close)
     setupBeforeUnload();
@@ -305,6 +312,234 @@ export default function AnalyticsTracker() {
     return () => {
       document.removeEventListener('click', handleClick);
     };
+  }
+
+  // Track environment (network + hardware)
+  function trackEnvironment() {
+    try {
+      // Network Information API
+      const connection = (navigator as any).connection || 
+                        (navigator as any).mozConnection || 
+                        (navigator as any).webkitConnection;
+      
+      const networkInfo = connection ? {
+        effectiveType: connection.effectiveType, // '4g', '3g', '2g', 'slow-2g'
+        downlink: connection.downlink, // Mbps
+        rtt: connection.rtt, // Round trip time in ms
+        saveData: connection.saveData, // Data saver mode
+        type: connection.type, // 'wifi', 'cellular', etc.
+      } : {
+        effectiveType: 'unknown',
+        downlink: null,
+        rtt: null,
+        saveData: false,
+        type: 'unknown',
+      };
+
+      // Hardware Information
+      const hardwareInfo = {
+        deviceMemory: (navigator as any).deviceMemory || null, // GB
+        hardwareConcurrency: navigator.hardwareConcurrency || null, // CPU cores
+        screenWidth: window.screen.width,
+        screenHeight: window.screen.height,
+        screenAvailWidth: window.screen.availWidth,
+        screenAvailHeight: window.screen.availHeight,
+        pixelRatio: window.devicePixelRatio || 1,
+        colorDepth: window.screen.colorDepth,
+        orientation: window.screen.orientation?.type || 'unknown',
+        touchPoints: navigator.maxTouchPoints || 0,
+      };
+
+      // Platform Information
+      const platformInfo = {
+        platform: navigator.platform,
+        userAgent: navigator.userAgent,
+        language: navigator.language,
+        languages: navigator.languages,
+        cookieEnabled: navigator.cookieEnabled,
+        doNotTrack: navigator.doNotTrack,
+        onLine: navigator.onLine,
+      };
+
+      // Track environment event
+      trackEvent('environment', {
+        network: networkInfo,
+        hardware: hardwareInfo,
+        platform: platformInfo,
+        timestamp: Date.now(),
+      });
+
+      console.log('🌐 Environment tracked:', {
+        network: networkInfo.effectiveType,
+        memory: hardwareInfo.deviceMemory ? `${hardwareInfo.deviceMemory}GB` : 'unknown',
+        cores: hardwareInfo.hardwareConcurrency,
+        screen: `${hardwareInfo.screenWidth}x${hardwareInfo.screenHeight}`,
+      });
+
+      // Listen for network changes
+      if (connection) {
+        connection.addEventListener('change', () => {
+          trackEvent('network_change', {
+            effectiveType: connection.effectiveType,
+            downlink: connection.downlink,
+            rtt: connection.rtt,
+            timestamp: Date.now(),
+          });
+          console.log('📶 Network changed:', connection.effectiveType);
+        });
+      }
+
+      // Listen for online/offline
+      window.addEventListener('online', () => {
+        trackEvent('connection_online', { timestamp: Date.now() });
+        console.log('✅ Connection online');
+      });
+
+      window.addEventListener('offline', () => {
+        trackEvent('connection_offline', { timestamp: Date.now() });
+        console.log('❌ Connection offline');
+      });
+    } catch (error) {
+      console.error('Failed to track environment:', error);
+    }
+  }
+
+  // Track performance metrics (RUM - Real User Monitoring)
+  function trackPerformance() {
+    try {
+      // Wait for page load
+      if (document.readyState === 'complete') {
+        capturePerformanceMetrics();
+      } else {
+        window.addEventListener('load', capturePerformanceMetrics);
+      }
+
+      // Track Web Vitals using PerformanceObserver
+      trackWebVitals();
+    } catch (error) {
+      console.error('Failed to track performance:', error);
+    }
+  }
+
+  function capturePerformanceMetrics() {
+    if (performanceTrackedRef.current) return;
+    performanceTrackedRef.current = true;
+
+    try {
+      const perfData = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming;
+      
+      if (!perfData) {
+        console.warn('Navigation timing not available');
+        return;
+      }
+
+      const metrics = {
+        // Navigation Timing
+        dns: Math.round(perfData.domainLookupEnd - perfData.domainLookupStart),
+        tcp: Math.round(perfData.connectEnd - perfData.connectStart),
+        ttfb: Math.round(perfData.responseStart - perfData.requestStart), // Time to First Byte
+        download: Math.round(perfData.responseEnd - perfData.responseStart),
+        domInteractive: Math.round(perfData.domInteractive - perfData.fetchStart),
+        domComplete: Math.round(perfData.domComplete - perfData.fetchStart),
+        loadComplete: Math.round(perfData.loadEventEnd - perfData.fetchStart),
+        
+        // Resource Timing
+        transferSize: perfData.transferSize || 0,
+        encodedBodySize: perfData.encodedBodySize || 0,
+        decodedBodySize: perfData.decodedBodySize || 0,
+      };
+
+      trackEvent('performance', {
+        metrics,
+        page: window.location.pathname,
+        timestamp: Date.now(),
+      });
+
+      console.log('⚡ Performance metrics:', {
+        ttfb: `${metrics.ttfb}ms`,
+        domComplete: `${metrics.domComplete}ms`,
+        loadComplete: `${metrics.loadComplete}ms`,
+      });
+    } catch (error) {
+      console.error('Failed to capture performance metrics:', error);
+    }
+  }
+
+  function trackWebVitals() {
+    try {
+      // FCP - First Contentful Paint
+      const fcpObserver = new PerformanceObserver((list) => {
+        for (const entry of list.getEntries()) {
+          if (entry.name === 'first-contentful-paint') {
+            trackEvent('web_vital_fcp', {
+              value: Math.round(entry.startTime),
+              rating: entry.startTime < 1800 ? 'good' : entry.startTime < 3000 ? 'needs-improvement' : 'poor',
+              timestamp: Date.now(),
+            });
+            console.log('🎨 FCP:', Math.round(entry.startTime), 'ms');
+            fcpObserver.disconnect();
+          }
+        }
+      });
+      fcpObserver.observe({ type: 'paint', buffered: true });
+
+      // LCP - Largest Contentful Paint
+      const lcpObserver = new PerformanceObserver((list) => {
+        const entries = list.getEntries();
+        const lastEntry = entries[entries.length - 1] as any;
+        
+        trackEvent('web_vital_lcp', {
+          value: Math.round(lastEntry.startTime),
+          rating: lastEntry.startTime < 2500 ? 'good' : lastEntry.startTime < 4000 ? 'needs-improvement' : 'poor',
+          element: lastEntry.element?.tagName || 'unknown',
+          timestamp: Date.now(),
+        });
+        console.log('🖼️ LCP:', Math.round(lastEntry.startTime), 'ms');
+      });
+      lcpObserver.observe({ type: 'largest-contentful-paint', buffered: true });
+
+      // FID - First Input Delay
+      const fidObserver = new PerformanceObserver((list) => {
+        for (const entry of list.getEntries()) {
+          const fidEntry = entry as any;
+          trackEvent('web_vital_fid', {
+            value: Math.round(fidEntry.processingStart - fidEntry.startTime),
+            rating: (fidEntry.processingStart - fidEntry.startTime) < 100 ? 'good' : 
+                   (fidEntry.processingStart - fidEntry.startTime) < 300 ? 'needs-improvement' : 'poor',
+            timestamp: Date.now(),
+          });
+          console.log('⚡ FID:', Math.round(fidEntry.processingStart - fidEntry.startTime), 'ms');
+          fidObserver.disconnect();
+        }
+      });
+      fidObserver.observe({ type: 'first-input', buffered: true });
+
+      // CLS - Cumulative Layout Shift
+      let clsValue = 0;
+      const clsObserver = new PerformanceObserver((list) => {
+        for (const entry of list.getEntries()) {
+          const layoutShift = entry as any;
+          if (!layoutShift.hadRecentInput) {
+            clsValue += layoutShift.value;
+          }
+        }
+      });
+      clsObserver.observe({ type: 'layout-shift', buffered: true });
+
+      // Report CLS after 5 seconds
+      setTimeout(() => {
+        trackEvent('web_vital_cls', {
+          value: Math.round(clsValue * 1000) / 1000,
+          rating: clsValue < 0.1 ? 'good' : clsValue < 0.25 ? 'needs-improvement' : 'poor',
+          timestamp: Date.now(),
+        });
+        console.log('📐 CLS:', Math.round(clsValue * 1000) / 1000);
+        clsObserver.disconnect();
+      }, 5000);
+
+    } catch (error) {
+      console.error('Failed to track web vitals:', error);
+    }
   }
 
   // Setup beforeunload (tab close)
