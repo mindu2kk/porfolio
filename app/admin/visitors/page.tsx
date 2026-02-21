@@ -11,6 +11,12 @@ const VisitorMap = dynamic(() => import('@/components/admin/VisitorMap'), {
   loading: () => <div className="h-[400px] flex items-center justify-center border-2 border-border bg-muted"><div className="text-muted-foreground">Loading map...</div></div>
 });
 
+// Dynamically import activity feed
+const ActivityFeed = dynamic(() => import('@/components/admin/ActivityFeed'), {
+  ssr: false,
+  loading: () => <div className="text-muted-foreground">Loading...</div>
+});
+
 interface VisitorLog {
   timestamp: string;
   userAgent: string;
@@ -18,6 +24,9 @@ interface VisitorLog {
   ip: string;
   country: string;
   city: string;
+  browser?: string;
+  os?: string;
+  device?: string;
 }
 
 interface VisitorData {
@@ -614,6 +623,26 @@ export default function VisitorLogsPage() {
             <div className="mt-4 text-sm text-muted-foreground">
               Click on markers to see visitor count • Powered by OpenStreetMap
             </div>
+          </div>
+        )}
+
+        {/* Real-time Activity Feed (NEW!) */}
+        {!loading && data.recentVisitors.length > 0 && (
+          <div className="border-zigzag-animated border-border p-6 mb-8 bg-background">
+            <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
+              📡 Real-time Activity Feed
+              <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+            </h3>
+            <ActivityFeed 
+              activities={data.recentVisitors.slice(0, 10).map(v => ({
+                timestamp: v.timestamp,
+                country: v.country,
+                city: v.city,
+                browser: v.browser,
+                device: v.device,
+                ip: v.ip,
+              }))} 
+            />
           </div>
         )}
 
