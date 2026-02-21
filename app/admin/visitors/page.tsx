@@ -70,6 +70,33 @@ interface BehaviorMetrics {
   returnVisitorRate: number;
 }
 
+interface TrackingAnalytics {
+  summary: {
+    activeSessions: number;
+    totalEvents: number;
+    avgDuration: number;
+    avgPageViews: number;
+  };
+  eventsByType: { name: string; value: number }[];
+  byCountry: { name: string; value: number }[];
+  byDevice: { name: string; value: number }[];
+}
+
+interface BehaviorAnalytics {
+  summary: {
+    totalBehaviorEvents: number;
+    scrollEvents: number;
+    clickEvents: number;
+    idleEvents: number;
+    visibilityEvents: number;
+    avgScrollDepth: number;
+    avgClicks: number;
+    avgEngagement: number;
+  };
+  scrollDepth: { depth: number; count: number }[];
+  topElements: { name: string; clicks: number }[];
+}
+
 const COLORS = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E2'];
 
 export default function VisitorLogsPage() {
@@ -77,25 +104,33 @@ export default function VisitorLogsPage() {
   const [stats, setStats] = useState<Stats>({ byCountry: [], byDevice: [], byBrowser: [], byOS: [], byTrafficSource: [], byTrafficType: [], byHour: [], byDay: [] });
   const [health, setHealth] = useState<HealthStatus | null>(null);
   const [behavior, setBehavior] = useState<BehaviorMetrics | null>(null);
+  const [tracking, setTracking] = useState<TrackingAnalytics | null>(null);
+  const [behaviorAnalytics, setBehaviorAnalytics] = useState<BehaviorAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [visitorRes, statsRes, healthRes, behaviorRes] = await Promise.all([
+        const [visitorRes, statsRes, healthRes, behaviorRes, trackingRes, behaviorAnalyticsRes] = await Promise.all([
           fetch('/api/visitor'),
           fetch('/api/visitor/stats'),
           fetch('/api/health'),
           fetch('/api/analytics/behavior'),
+          fetch('/api/tracking/analytics'),
+          fetch('/api/tracking/behavior'),
         ]);
         const visitorData = await visitorRes.json();
         const statsData = await statsRes.json();
         const healthData = await healthRes.json();
         const behaviorData = await behaviorRes.json();
+        const trackingData = await trackingRes.json();
+        const behaviorAnalyticsData = await behaviorAnalyticsRes.json();
         setData(visitorData);
         setStats(statsData);
         setHealth(healthData);
         setBehavior(behaviorData);
+        setTracking(trackingData);
+        setBehaviorAnalytics(behaviorAnalyticsData);
       } catch (error) {
         console.error('Failed to fetch visitor data:', error);
       } finally {
@@ -292,6 +327,157 @@ export default function VisitorLogsPage() {
                   </span>
                 </div>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Phase 1: Event Tracking Analytics */}
+        {tracking && (
+          <div className="border-solid-animated border-border p-6 mb-8">
+            <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
+              📊 Phase 1: Event Tracking Analytics
+            </h2>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+              <div className="p-4 border-2 border-border bg-blue-500/10">
+                <div className="text-sm text-muted-foreground mb-2">Active Sessions</div>
+                <div className="text-3xl font-bold text-blue-500">{tracking.summary.activeSessions}</div>
+              </div>
+              
+              <div className="p-4 border-2 border-border bg-green-500/10">
+                <div className="text-sm text-muted-foreground mb-2">Total Events</div>
+                <div className="text-3xl font-bold text-green-500">{tracking.summary.totalEvents}</div>
+              </div>
+              
+              <div className="p-4 border-2 border-border bg-purple-500/10">
+                <div className="text-sm text-muted-foreground mb-2">Avg Duration</div>
+                <div className="text-3xl font-bold text-purple-500">{tracking.summary.avgDuration}s</div>
+              </div>
+              
+              <div className="p-4 border-2 border-border bg-orange-500/10">
+                <div className="text-sm text-muted-foreground mb-2">Avg Page Views</div>
+                <div className="text-3xl font-bold text-orange-500">{tracking.summary.avgPageViews.toFixed(1)}</div>
+              </div>
+            </div>
+
+            {tracking.eventsByType.length > 0 && (
+              <div className="mt-4">
+                <h3 className="text-lg font-bold mb-3">Event Types Distribution</h3>
+                <ResponsiveContainer width="100%" height={250}>
+                  <BarChart data={tracking.eventsByType.slice(0, 10)}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#444" />
+                    <XAxis 
+                      dataKey="name" 
+                      stroke="#999" 
+                      style={{ fontSize: '10px' }}
+                      angle={-45}
+                      textAnchor="end"
+                      height={80}
+                    />
+                    <YAxis stroke="#999" />
+                    <Tooltip 
+                      contentStyle={{ 
+                        background: '#1a1a1a', 
+                        border: '2px solid #fff',
+                        color: '#fff',
+                        borderRadius: '4px'
+                      }}
+                    />
+                    <Bar dataKey="value" fill="#8B5CF6" radius={[8, 8, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Phase 2: Behavior Tracking Details */}
+        {behaviorAnalytics && (
+          <div className="border-dashed-animated border-border p-6 mb-8">
+            <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
+              🎯 Phase 2: Behavior Tracking Details
+            </h2>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+              <div className="p-4 border-2 border-border">
+                <div className="text-sm text-muted-foreground mb-2">Scroll Events</div>
+                <div className="text-2xl font-bold">{behaviorAnalytics.summary.scrollEvents}</div>
+                <div className="text-xs text-muted-foreground mt-1">Avg: {behaviorAnalytics.summary.avgScrollDepth}%</div>
+              </div>
+              
+              <div className="p-4 border-2 border-border">
+                <div className="text-sm text-muted-foreground mb-2">Click Events</div>
+                <div className="text-2xl font-bold">{behaviorAnalytics.summary.clickEvents}</div>
+                <div className="text-xs text-muted-foreground mt-1">Avg: {behaviorAnalytics.summary.avgClicks.toFixed(1)}/session</div>
+              </div>
+              
+              <div className="p-4 border-2 border-border">
+                <div className="text-sm text-muted-foreground mb-2">Idle Events</div>
+                <div className="text-2xl font-bold">{behaviorAnalytics.summary.idleEvents}</div>
+              </div>
+              
+              <div className="p-4 border-2 border-border">
+                <div className="text-sm text-muted-foreground mb-2">Visibility Changes</div>
+                <div className="text-2xl font-bold">{behaviorAnalytics.summary.visibilityEvents}</div>
+              </div>
+              
+              <div className="p-4 border-2 border-border">
+                <div className="text-sm text-muted-foreground mb-2">Engagement Score</div>
+                <div className="text-2xl font-bold text-green-500">{behaviorAnalytics.summary.avgEngagement}</div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Scroll Depth Distribution */}
+              {behaviorAnalytics.scrollDepth.length > 0 && (
+                <div>
+                  <h3 className="text-lg font-bold mb-3">Scroll Depth Distribution</h3>
+                  <ResponsiveContainer width="100%" height={200}>
+                    <BarChart data={behaviorAnalytics.scrollDepth}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#444" />
+                      <XAxis dataKey="depth" stroke="#999" />
+                      <YAxis stroke="#999" />
+                      <Tooltip 
+                        contentStyle={{ 
+                          background: '#1a1a1a', 
+                          border: '2px solid #fff',
+                          color: '#fff'
+                        }}
+                      />
+                      <Bar dataKey="count" fill="#10B981" radius={[8, 8, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
+
+              {/* Top Clicked Elements */}
+              {behaviorAnalytics.topElements.length > 0 && (
+                <div>
+                  <h3 className="text-lg font-bold mb-3">Top Clicked Elements</h3>
+                  <ResponsiveContainer width="100%" height={200}>
+                    <BarChart data={behaviorAnalytics.topElements.slice(0, 5)}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#444" />
+                      <XAxis 
+                        dataKey="name" 
+                        stroke="#999"
+                        style={{ fontSize: '10px' }}
+                        angle={-45}
+                        textAnchor="end"
+                        height={60}
+                      />
+                      <YAxis stroke="#999" />
+                      <Tooltip 
+                        contentStyle={{ 
+                          background: '#1a1a1a', 
+                          border: '2px solid #fff',
+                          color: '#fff'
+                        }}
+                      />
+                      <Bar dataKey="clicks" fill="#F59E0B" radius={[8, 8, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
             </div>
           </div>
         )}
