@@ -125,6 +125,53 @@ interface PerformanceAnalytics {
   };
 }
 
+interface AdvancedAnalytics {
+  summary: {
+    totalSessions: number;
+    activeSessions: number;
+    avgFunnelConversion: number;
+    avgRetention: number;
+    avgReplayEngagement: number;
+    totalFunnels: number;
+    totalCohorts: number;
+    totalPatterns: number;
+  };
+  funnels: {
+    id: string;
+    name: string;
+    totalSessions: number;
+    conversionRate: number;
+    avgCompletionTime: number;
+    steps: {
+      name: string;
+      entered: number;
+      completed: number;
+      dropOff: number;
+      conversionRate: number;
+    }[];
+  }[];
+  cohorts: {
+    cohorts: {
+      month: string;
+      totalUsers: number;
+      retention: number[];
+    }[];
+    overallRetention: {
+      month: number;
+      avgRetentionRate: number;
+    }[];
+  } | null;
+  replays: {
+    summaries: any[];
+    patterns: {
+      pattern: string;
+      count: number;
+      avgEngagement: number;
+      description: string;
+    }[];
+  };
+}
+
 const COLORS = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E2'];
 
 export default function VisitorLogsPage() {
@@ -135,12 +182,13 @@ export default function VisitorLogsPage() {
   const [tracking, setTracking] = useState<TrackingAnalytics | null>(null);
   const [behaviorAnalytics, setBehaviorAnalytics] = useState<BehaviorAnalytics | null>(null);
   const [performance, setPerformance] = useState<PerformanceAnalytics | null>(null);
+  const [advanced, setAdvanced] = useState<AdvancedAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [visitorRes, statsRes, healthRes, behaviorRes, trackingRes, behaviorAnalyticsRes, performanceRes] = await Promise.all([
+        const [visitorRes, statsRes, healthRes, behaviorRes, trackingRes, behaviorAnalyticsRes, performanceRes, advancedRes] = await Promise.all([
           fetch('/api/visitor'),
           fetch('/api/visitor/stats'),
           fetch('/api/health'),
@@ -148,6 +196,7 @@ export default function VisitorLogsPage() {
           fetch('/api/tracking/analytics'),
           fetch('/api/tracking/behavior'),
           fetch('/api/tracking/performance'),
+          fetch('/api/tracking/advanced'),
         ]);
         const visitorData = await visitorRes.json();
         const statsData = await statsRes.json();
@@ -156,6 +205,7 @@ export default function VisitorLogsPage() {
         const trackingData = await trackingRes.json();
         const behaviorAnalyticsData = await behaviorAnalyticsRes.json();
         const performanceData = await performanceRes.json();
+        const advancedData = await advancedRes.json();
         setData(visitorData);
         setStats(statsData);
         setHealth(healthData);
@@ -163,6 +213,7 @@ export default function VisitorLogsPage() {
         setTracking(trackingData);
         setBehaviorAnalytics(behaviorAnalyticsData);
         setPerformance(performanceData);
+        setAdvanced(advancedData);
       } catch (error) {
         console.error('Failed to fetch visitor data:', error);
       } finally {
@@ -731,6 +782,178 @@ export default function VisitorLogsPage() {
                 )}
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Phase 4: Advanced Analytics */}
+        {advanced && (
+          <div className="border-zigzag-animated border-border p-6 mb-8">
+            <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
+              🎯 Phase 4: Advanced Analytics
+            </h2>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+              <div className="p-4 border-2 border-border bg-blue-500/10">
+                <div className="text-sm text-muted-foreground mb-2">Total Sessions (30d)</div>
+                <div className="text-3xl font-bold text-blue-500">{advanced.summary.totalSessions}</div>
+              </div>
+              
+              <div className="p-4 border-2 border-border bg-green-500/10">
+                <div className="text-sm text-muted-foreground mb-2">Avg Funnel Conversion</div>
+                <div className="text-3xl font-bold text-green-500">{advanced.summary.avgFunnelConversion}%</div>
+              </div>
+              
+              <div className="p-4 border-2 border-border bg-purple-500/10">
+                <div className="text-sm text-muted-foreground mb-2">Avg Retention</div>
+                <div className="text-3xl font-bold text-purple-500">{advanced.summary.avgRetention}%</div>
+              </div>
+              
+              <div className="p-4 border-2 border-border bg-orange-500/10">
+                <div className="text-sm text-muted-foreground mb-2">Replay Engagement</div>
+                <div className="text-3xl font-bold text-orange-500">{advanced.summary.avgReplayEngagement}/100</div>
+              </div>
+            </div>
+
+            {/* Funnel Analysis */}
+            {advanced.funnels.length > 0 && (
+              <div className="mb-6">
+                <h3 className="text-lg font-bold mb-3">🔄 Funnel Analysis</h3>
+                <div className="space-y-4">
+                  {advanced.funnels.map((funnel, idx) => (
+                    <div key={idx} className="p-4 border-2 border-border bg-background">
+                      <div className="flex justify-between items-center mb-3">
+                        <div>
+                          <div className="font-bold text-lg">{funnel.name}</div>
+                          <div className="text-sm text-muted-foreground">
+                            {funnel.totalSessions} sessions • Avg completion: {funnel.avgCompletionTime}s
+                          </div>
+                        </div>
+                        <div className={`text-2xl font-bold px-4 py-2 rounded ${
+                          funnel.conversionRate >= 50 ? 'bg-green-500 text-white' :
+                          funnel.conversionRate >= 25 ? 'bg-yellow-500 text-white' :
+                          'bg-red-500 text-white'
+                        }`}>
+                          {funnel.conversionRate}%
+                        </div>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+                        {funnel.steps.map((step, stepIdx) => (
+                          <div key={stepIdx} className="p-3 border border-border">
+                            <div className="text-xs text-muted-foreground mb-1">Step {stepIdx + 1}: {step.name}</div>
+                            <div className="text-lg font-bold mb-1">{step.conversionRate}%</div>
+                            <div className="text-xs space-y-1">
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">Entered:</span>
+                                <span>{step.entered}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">Completed:</span>
+                                <span className="text-green-500">{step.completed}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">Drop-off:</span>
+                                <span className="text-red-500">{step.dropOff}</span>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Cohort Analysis */}
+            {advanced.cohorts && advanced.cohorts.cohorts.length > 0 && (
+              <div className="mb-6">
+                <h3 className="text-lg font-bold mb-3">📊 Cohort Retention Analysis</h3>
+                <div className="overflow-x-auto">
+                  <table className="w-full border-2 border-border">
+                    <thead className="bg-muted">
+                      <tr>
+                        <th className="p-3 text-left border border-border">Cohort Month</th>
+                        <th className="p-3 text-center border border-border">Total Users</th>
+                        <th className="p-3 text-center border border-border">Month 0</th>
+                        <th className="p-3 text-center border border-border">Month 1</th>
+                        <th className="p-3 text-center border border-border">Month 2</th>
+                        <th className="p-3 text-center border border-border">Month 3</th>
+                        <th className="p-3 text-center border border-border">Month 4</th>
+                        <th className="p-3 text-center border border-border">Month 5</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {advanced.cohorts.cohorts.slice(0, 6).map((cohort, idx) => (
+                        <tr key={idx} className="border-b border-border hover:bg-muted/50">
+                          <td className="p-3 font-bold border border-border">{cohort.month}</td>
+                          <td className="p-3 text-center border border-border">{cohort.totalUsers}</td>
+                          {cohort.retention.map((rate, rIdx) => (
+                            <td key={rIdx} className="p-3 text-center border border-border">
+                              <span className={`font-bold ${
+                                rate >= 80 ? 'text-green-500' :
+                                rate >= 50 ? 'text-yellow-500' :
+                                rate >= 20 ? 'text-orange-500' :
+                                'text-red-500'
+                              }`}>
+                                {rate}%
+                              </span>
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                      {advanced.cohorts.overallRetention.length > 0 && (
+                        <tr className="bg-muted font-bold">
+                          <td className="p-3 border border-border" colSpan={2}>Overall Average</td>
+                          {advanced.cohorts.overallRetention.map((item, idx) => (
+                            <td key={idx} className="p-3 text-center border border-border">
+                              <span className={`${
+                                item.avgRetentionRate >= 80 ? 'text-green-500' :
+                                item.avgRetentionRate >= 50 ? 'text-yellow-500' :
+                                item.avgRetentionRate >= 20 ? 'text-orange-500' :
+                                'text-red-500'
+                              }`}>
+                                {item.avgRetentionRate}%
+                              </span>
+                            </td>
+                          ))}
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* Session Replay Patterns */}
+            {advanced.replays.patterns.length > 0 && (
+              <div>
+                <h3 className="text-lg font-bold mb-3">🔍 Detected Behavior Patterns</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {advanced.replays.patterns.map((pattern, idx) => (
+                    <div key={idx} className="p-4 border-2 border-border bg-background">
+                      <div className="flex justify-between items-start mb-2">
+                        <div className="font-bold text-lg">{pattern.pattern}</div>
+                        <div className="text-sm px-2 py-1 bg-blue-500 text-white rounded">
+                          {pattern.count} sessions
+                        </div>
+                      </div>
+                      <div className="text-sm text-muted-foreground mb-2">{pattern.description}</div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground">Avg Engagement:</span>
+                        <span className={`text-sm font-bold ${
+                          pattern.avgEngagement >= 80 ? 'text-green-500' :
+                          pattern.avgEngagement >= 50 ? 'text-yellow-500' :
+                          'text-red-500'
+                        }`}>
+                          {pattern.avgEngagement}/100
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
