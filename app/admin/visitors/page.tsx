@@ -888,35 +888,49 @@ export default function VisitorLogsPage() {
                         <tr key={idx} className="border-b border-border hover:bg-muted/50">
                           <td className="p-3 font-bold border border-border">{cohort.month}</td>
                           <td className="p-3 text-center border border-border">{cohort.totalUsers}</td>
-                          {cohort.retention.map((rate, rIdx) => (
-                            <td key={rIdx} className="p-3 text-center border border-border">
-                              <span className={`font-bold ${
-                                rate >= 80 ? 'text-green-500' :
-                                rate >= 50 ? 'text-yellow-500' :
-                                rate >= 20 ? 'text-orange-500' :
-                                'text-red-500'
-                              }`}>
-                                {rate}%
-                              </span>
-                            </td>
-                          ))}
+                          {[0, 1, 2, 3, 4, 5].map((monthIdx) => {
+                            const rate = cohort.retention[monthIdx];
+                            return (
+                              <td key={monthIdx} className="p-3 text-center border border-border">
+                                {rate !== undefined ? (
+                                  <span className={`font-bold ${
+                                    rate >= 80 ? 'text-green-500' :
+                                    rate >= 50 ? 'text-yellow-500' :
+                                    rate >= 20 ? 'text-orange-500' :
+                                    'text-red-500'
+                                  }`}>
+                                    {rate}%
+                                  </span>
+                                ) : (
+                                  <span className="text-muted-foreground">-</span>
+                                )}
+                              </td>
+                            );
+                          })}
                         </tr>
                       ))}
                       {advanced.cohorts.overallRetention.length > 0 && (
                         <tr className="bg-muted font-bold">
                           <td className="p-3 border border-border" colSpan={2}>Overall Average</td>
-                          {advanced.cohorts.overallRetention.map((item, idx) => (
-                            <td key={idx} className="p-3 text-center border border-border">
-                              <span className={`${
-                                item.avgRetentionRate >= 80 ? 'text-green-500' :
-                                item.avgRetentionRate >= 50 ? 'text-yellow-500' :
-                                item.avgRetentionRate >= 20 ? 'text-orange-500' :
-                                'text-red-500'
-                              }`}>
-                                {item.avgRetentionRate}%
-                              </span>
-                            </td>
-                          ))}
+                          {[0, 1, 2, 3, 4, 5].map((monthIdx) => {
+                            const item = advanced.cohorts.overallRetention[monthIdx];
+                            return (
+                              <td key={monthIdx} className="p-3 text-center border border-border">
+                                {item !== undefined ? (
+                                  <span className={`${
+                                    item.avgRetentionRate >= 80 ? 'text-green-500' :
+                                    item.avgRetentionRate >= 50 ? 'text-yellow-500' :
+                                    item.avgRetentionRate >= 20 ? 'text-orange-500' :
+                                    'text-red-500'
+                                  }`}>
+                                    {item.avgRetentionRate}%
+                                  </span>
+                                ) : (
+                                  <span className="text-muted-foreground">-</span>
+                                )}
+                              </td>
+                            );
+                          })}
                         </tr>
                       )}
                     </tbody>
