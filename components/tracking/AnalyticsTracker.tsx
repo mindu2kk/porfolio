@@ -14,8 +14,21 @@ export default function AnalyticsTracker() {
   const scrollDepthsTrackedRef = useRef<Set<number>>(new Set());
   const isIdleRef = useRef<boolean>(false);
   const performanceTrackedRef = useRef<boolean>(false);
+  const shouldTrackRef = useRef<boolean>(false);
 
   useEffect(() => {
+    // Check if we should track this page (exclude admin pages)
+    const pathname = window.location.pathname;
+    shouldTrackRef.current = !pathname.startsWith('/admin');
+
+    // Only initialize tracking for non-admin pages
+    if (!shouldTrackRef.current) {
+      console.log('🚫 Analytics tracking disabled for admin page:', pathname);
+      return;
+    }
+
+    console.log('✅ Analytics tracking enabled for:', pathname);
+
     // Initialize session on mount
     initializeSession();
 
@@ -566,7 +579,7 @@ export default function AnalyticsTracker() {
 
   // Track custom event
   async function trackEvent(type: string, metadata: Record<string, any>) {
-    if (!sessionIdRef.current) return;
+    if (!sessionIdRef.current || !shouldTrackRef.current) return;
 
     try {
       await fetch('/api/tracking/event', {
