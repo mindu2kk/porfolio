@@ -4,16 +4,13 @@ import { type TrackingEvent } from '@/lib/tracking/events';
 
 export async function GET() {
   try {
-    // Get recent performance events (last 24 hours)
-    const now = Date.now();
-    const oneDayAgo = now - 24 * 60 * 60 * 1000;
-    
-    const eventIds = await kv.zrange('events:all', oneDayAgo, now, {
-      byScore: true,
+    // Get ALL recent events (not just last 24h)
+    const eventIds = await kv.zrange('events:all', 0, -1, {
+      byScore: false,
       rev: true,
     });
 
-    // Fetch events
+    // Fetch events (limit to 500 most recent)
     const events = await Promise.all(
       (eventIds || []).slice(0, 500).map(async (id) => {
         const event = await kv.get<TrackingEvent>(`event:${id as string}`);
