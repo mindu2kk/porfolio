@@ -20,6 +20,10 @@ export interface SessionMetrics {
   scrollDepth: number; // max depth reached
   idleTime: number; // seconds
   activeTime: number; // seconds
+  maxScrollDepth: number; // highest scroll percentage
+  clickCount: number; // total clicks
+  idleEvents: number; // number of idle periods
+  visibilityChanges: number; // tab hidden/visible count
 }
 
 export interface SessionMetadata {
@@ -65,6 +69,10 @@ export async function createSession(
       scrollDepth: 0,
       idleTime: 0,
       activeTime: 0,
+      maxScrollDepth: 0,
+      clickCount: 0,
+      idleEvents: 0,
+      visibilityChanges: 0,
     },
     metadata,
   };
@@ -250,5 +258,53 @@ export async function cleanupOldSessions(): Promise<void> {
     }
   } catch (error) {
     console.error('Failed to cleanup old sessions:', error);
+  }
+}
+
+// Update session metrics based on event
+export async function updateSessionMetrics(
+  sessionId: string,
+  eventType: string,
+  metadata: Record<string, any>
+): Promise<boolean> {
+  try {
+    const session = await getSession(sessionId);
+    if (!session) return false;
+
+    // Update metrics based on event type
+    switch (eventType) {
+      case 'click':
+        session.metrics.clickCount += 1;
+        session.metrics.clicks += 1;
+        break;
+      
+      case 'scroll_depth':
+        const depth = metadata.depth || 0;
+        if (depth > session.metrics.maxScrollDepth) {
+          session.metrics.maxScrollDepth = depth;
+          session.metrics.scrollDepth = depth;
+        }
+        break;
+      
+      case 'idle_start':
+        session.metrics.idleEvents += 1;
+        break;
+      
+      case 'visibility_change':
+        session.metrics.visibilityChanges += 1;
+        break;
+      
+      case 'page_view':
+        session.metrics.pageViews += 1;
+        break;
+    }
+
+    // Store updated session
+    await kv.set(`session:${sessionId}`, session, { ex: SESSION_TTL });
+    
+    return true;
+  } catch (error) {
+    console.error('Failed to update session metrics:', error);
+    return false;
   }
 }
