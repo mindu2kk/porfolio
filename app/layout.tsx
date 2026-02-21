@@ -7,6 +7,7 @@ import './globals.css';
 import { HeaderNavigation } from '@/components/navigation/HeaderNavigation';
 import { ThemeProvider } from '@/components/theme-provider';
 import { Background } from '@/components/ui/background';
+import AnalyticsTracker from '@/components/tracking/AnalyticsTracker';
 
 const geist = Geist({
   subsets: ['latin'],
@@ -81,6 +82,7 @@ export default function RootLayout({
       })();`}</Script>
           {children}
           <Analytics />
+          <AnalyticsTracker />
         </ThemeProvider>
       </body>
     </html>
