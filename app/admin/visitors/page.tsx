@@ -97,6 +97,34 @@ interface BehaviorAnalytics {
   topElements: { name: string; clicks: number }[];
 }
 
+interface PerformanceAnalytics {
+  summary: {
+    totalPerformanceEvents: number;
+    totalWebVitalEvents: number;
+    avgPerformanceScore: number | null;
+  };
+  navigationTiming: {
+    dns: number;
+    tcp: number;
+    ttfb: number;
+    download: number;
+    domInteractive: number;
+    domComplete: number;
+    loadComplete: number;
+  } | null;
+  webVitals: {
+    fcp: { avg: number | null; ratings: Record<string, number>; count: number };
+    lcp: { avg: number | null; ratings: Record<string, number>; count: number };
+    fid: { avg: number | null; ratings: Record<string, number>; count: number };
+    cls: { avg: number | null; ratings: Record<string, number>; count: number };
+  };
+  environment: {
+    networkTypes: { type: string; count: number }[];
+    deviceMemory: { memory: string; count: number }[];
+    cpuCores: { cores: string; count: number }[];
+  };
+}
+
 const COLORS = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E2'];
 
 export default function VisitorLogsPage() {
@@ -106,18 +134,20 @@ export default function VisitorLogsPage() {
   const [behavior, setBehavior] = useState<BehaviorMetrics | null>(null);
   const [tracking, setTracking] = useState<TrackingAnalytics | null>(null);
   const [behaviorAnalytics, setBehaviorAnalytics] = useState<BehaviorAnalytics | null>(null);
+  const [performance, setPerformance] = useState<PerformanceAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [visitorRes, statsRes, healthRes, behaviorRes, trackingRes, behaviorAnalyticsRes] = await Promise.all([
+        const [visitorRes, statsRes, healthRes, behaviorRes, trackingRes, behaviorAnalyticsRes, performanceRes] = await Promise.all([
           fetch('/api/visitor'),
           fetch('/api/visitor/stats'),
           fetch('/api/health'),
           fetch('/api/analytics/behavior'),
           fetch('/api/tracking/analytics'),
           fetch('/api/tracking/behavior'),
+          fetch('/api/tracking/performance'),
         ]);
         const visitorData = await visitorRes.json();
         const statsData = await statsRes.json();
@@ -125,12 +155,14 @@ export default function VisitorLogsPage() {
         const behaviorData = await behaviorRes.json();
         const trackingData = await trackingRes.json();
         const behaviorAnalyticsData = await behaviorAnalyticsRes.json();
+        const performanceData = await performanceRes.json();
         setData(visitorData);
         setStats(statsData);
         setHealth(healthData);
         setBehavior(behaviorData);
         setTracking(trackingData);
         setBehaviorAnalytics(behaviorAnalyticsData);
+        setPerformance(performanceData);
       } catch (error) {
         console.error('Failed to fetch visitor data:', error);
       } finally {
@@ -478,6 +510,226 @@ export default function VisitorLogsPage() {
                   </ResponsiveContainer>
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* Phase 3: Performance Metrics */}
+        {performance && (
+          <div className="border-wave-animated border-border p-6 mb-8">
+            <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
+              ⚡ Phase 3: Performance Metrics
+              {performance.summary.avgPerformanceScore !== null && (
+                <span className={`text-sm px-3 py-1 rounded ${
+                  performance.summary.avgPerformanceScore >= 90 ? 'bg-green-500 text-white' :
+                  performance.summary.avgPerformanceScore >= 70 ? 'bg-blue-500 text-white' :
+                  performance.summary.avgPerformanceScore >= 50 ? 'bg-yellow-500 text-white' :
+                  'bg-red-500 text-white'
+                }`}>
+                  Score: {performance.summary.avgPerformanceScore}/100
+                </span>
+              )}
+            </h2>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+              <div className="p-4 border-2 border-border bg-purple-500/10">
+                <div className="text-sm text-muted-foreground mb-2">Performance Events</div>
+                <div className="text-3xl font-bold text-purple-500">{performance.summary.totalPerformanceEvents}</div>
+              </div>
+              
+              <div className="p-4 border-2 border-border bg-blue-500/10">
+                <div className="text-sm text-muted-foreground mb-2">Web Vital Events</div>
+                <div className="text-3xl font-bold text-blue-500">{performance.summary.totalWebVitalEvents}</div>
+              </div>
+              
+              <div className="p-4 border-2 border-border bg-green-500/10">
+                <div className="text-sm text-muted-foreground mb-2">Performance Score</div>
+                <div className="text-3xl font-bold text-green-500">
+                  {performance.summary.avgPerformanceScore !== null ? `${performance.summary.avgPerformanceScore}/100` : 'N/A'}
+                </div>
+              </div>
+            </div>
+
+            {/* Navigation Timing */}
+            {performance.navigationTiming && (
+              <div className="mb-6">
+                <h3 className="text-lg font-bold mb-3">🚀 Navigation Timing (Average)</h3>
+                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
+                  <div className="p-3 border border-border bg-background">
+                    <div className="text-xs text-muted-foreground mb-1">DNS</div>
+                    <div className="text-lg font-bold">{performance.navigationTiming.dns}ms</div>
+                  </div>
+                  <div className="p-3 border border-border bg-background">
+                    <div className="text-xs text-muted-foreground mb-1">TCP</div>
+                    <div className="text-lg font-bold">{performance.navigationTiming.tcp}ms</div>
+                  </div>
+                  <div className="p-3 border border-border bg-background">
+                    <div className="text-xs text-muted-foreground mb-1">TTFB</div>
+                    <div className="text-lg font-bold">{performance.navigationTiming.ttfb}ms</div>
+                  </div>
+                  <div className="p-3 border border-border bg-background">
+                    <div className="text-xs text-muted-foreground mb-1">Download</div>
+                    <div className="text-lg font-bold">{performance.navigationTiming.download}ms</div>
+                  </div>
+                  <div className="p-3 border border-border bg-background">
+                    <div className="text-xs text-muted-foreground mb-1">DOM Interactive</div>
+                    <div className="text-lg font-bold">{performance.navigationTiming.domInteractive}ms</div>
+                  </div>
+                  <div className="p-3 border border-border bg-background">
+                    <div className="text-xs text-muted-foreground mb-1">DOM Complete</div>
+                    <div className="text-lg font-bold">{performance.navigationTiming.domComplete}ms</div>
+                  </div>
+                  <div className="p-3 border border-border bg-background">
+                    <div className="text-xs text-muted-foreground mb-1">Load Complete</div>
+                    <div className="text-lg font-bold">{performance.navigationTiming.loadComplete}ms</div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Web Vitals */}
+            <div className="mb-6">
+              <h3 className="text-lg font-bold mb-3">📊 Web Vitals</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {/* FCP */}
+                <div className="p-4 border-2 border-border">
+                  <div className="text-sm text-muted-foreground mb-2">First Contentful Paint (FCP)</div>
+                  <div className="text-2xl font-bold mb-2">
+                    {performance.webVitals.fcp.avg !== null ? `${performance.webVitals.fcp.avg}ms` : 'N/A'}
+                  </div>
+                  <div className="text-xs space-y-1">
+                    <div className="flex justify-between">
+                      <span className="text-green-500">Good:</span>
+                      <span>{performance.webVitals.fcp.ratings.good || 0}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-yellow-500">Needs Improvement:</span>
+                      <span>{performance.webVitals.fcp.ratings['needs-improvement'] || 0}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-red-500">Poor:</span>
+                      <span>{performance.webVitals.fcp.ratings.poor || 0}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* LCP */}
+                <div className="p-4 border-2 border-border">
+                  <div className="text-sm text-muted-foreground mb-2">Largest Contentful Paint (LCP)</div>
+                  <div className="text-2xl font-bold mb-2">
+                    {performance.webVitals.lcp.avg !== null ? `${performance.webVitals.lcp.avg}ms` : 'N/A'}
+                  </div>
+                  <div className="text-xs space-y-1">
+                    <div className="flex justify-between">
+                      <span className="text-green-500">Good:</span>
+                      <span>{performance.webVitals.lcp.ratings.good || 0}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-yellow-500">Needs Improvement:</span>
+                      <span>{performance.webVitals.lcp.ratings['needs-improvement'] || 0}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-red-500">Poor:</span>
+                      <span>{performance.webVitals.lcp.ratings.poor || 0}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* FID */}
+                <div className="p-4 border-2 border-border">
+                  <div className="text-sm text-muted-foreground mb-2">First Input Delay (FID)</div>
+                  <div className="text-2xl font-bold mb-2">
+                    {performance.webVitals.fid.avg !== null ? `${performance.webVitals.fid.avg}ms` : 'N/A'}
+                  </div>
+                  <div className="text-xs space-y-1">
+                    <div className="flex justify-between">
+                      <span className="text-green-500">Good:</span>
+                      <span>{performance.webVitals.fid.ratings.good || 0}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-yellow-500">Needs Improvement:</span>
+                      <span>{performance.webVitals.fid.ratings['needs-improvement'] || 0}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-red-500">Poor:</span>
+                      <span>{performance.webVitals.fid.ratings.poor || 0}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* CLS */}
+                <div className="p-4 border-2 border-border">
+                  <div className="text-sm text-muted-foreground mb-2">Cumulative Layout Shift (CLS)</div>
+                  <div className="text-2xl font-bold mb-2">
+                    {performance.webVitals.cls.avg !== null ? performance.webVitals.cls.avg.toFixed(3) : 'N/A'}
+                  </div>
+                  <div className="text-xs space-y-1">
+                    <div className="flex justify-between">
+                      <span className="text-green-500">Good:</span>
+                      <span>{performance.webVitals.cls.ratings.good || 0}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-yellow-500">Needs Improvement:</span>
+                      <span>{performance.webVitals.cls.ratings['needs-improvement'] || 0}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-red-500">Poor:</span>
+                      <span>{performance.webVitals.cls.ratings.poor || 0}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Environment Data */}
+            <div>
+              <h3 className="text-lg font-bold mb-3">🌐 Environment Data</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* Network Types */}
+                {performance.environment.networkTypes.length > 0 && (
+                  <div className="p-4 border-2 border-border">
+                    <div className="text-sm font-bold mb-3">Network Types</div>
+                    <div className="space-y-2">
+                      {performance.environment.networkTypes.map((item, idx) => (
+                        <div key={idx} className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">{item.type}:</span>
+                          <span className="font-bold">{item.count}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Device Memory */}
+                {performance.environment.deviceMemory.length > 0 && (
+                  <div className="p-4 border-2 border-border">
+                    <div className="text-sm font-bold mb-3">Device Memory</div>
+                    <div className="space-y-2">
+                      {performance.environment.deviceMemory.map((item, idx) => (
+                        <div key={idx} className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">{item.memory}:</span>
+                          <span className="font-bold">{item.count}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* CPU Cores */}
+                {performance.environment.cpuCores.length > 0 && (
+                  <div className="p-4 border-2 border-border">
+                    <div className="text-sm font-bold mb-3">CPU Cores</div>
+                    <div className="space-y-2">
+                      {performance.environment.cpuCores.map((item, idx) => (
+                        <div key={idx} className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">{item.cores}:</span>
+                          <span className="font-bold">{item.count}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         )}
