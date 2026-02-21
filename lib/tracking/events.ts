@@ -14,6 +14,15 @@ export type EventType =
   | 'tab_hidden'
   | 'tab_visible'
   | 'tab_close'
+  | 'environment'
+  | 'network_change'
+  | 'connection_online'
+  | 'connection_offline'
+  | 'performance'
+  | 'web_vital_fcp'
+  | 'web_vital_lcp'
+  | 'web_vital_fid'
+  | 'web_vital_cls'
   | 'api_call'
   | 'error_event'
   | 'conversion_event';
@@ -62,6 +71,46 @@ export interface ScrollDepthMetadata {
 export interface VisibilityMetadata {
   state: 'visible' | 'hidden';
   previousState: 'visible' | 'hidden';
+}
+
+export interface EnvironmentMetadata {
+  network: {
+    effectiveType: string;
+    downlink: number | null;
+    rtt: number | null;
+    saveData: boolean;
+    type: string;
+  };
+  hardware: {
+    deviceMemory: number | null;
+    hardwareConcurrency: number | null;
+    screenWidth: number;
+    screenHeight: number;
+    pixelRatio: number;
+  };
+  platform: {
+    platform: string;
+    userAgent: string;
+    language: string;
+  };
+}
+
+export interface PerformanceMetadata {
+  metrics: {
+    dns: number;
+    tcp: number;
+    ttfb: number;
+    download: number;
+    domInteractive: number;
+    domComplete: number;
+    loadComplete: number;
+  };
+  page: string;
+}
+
+export interface WebVitalMetadata {
+  value: number;
+  rating: 'good' | 'needs-improvement' | 'poor';
 }
 
 // Generate unique event ID
