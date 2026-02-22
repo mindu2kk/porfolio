@@ -9,10 +9,8 @@ export async function GET() {
     // Get active sessions
     const activeSessions = await getActiveSessions();
     
-    // Get sessions from last 30 days for analysis
-    const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
-    const now = Date.now();
-    const recentSessionIds = await getSessionsInRange(thirtyDaysAgo, now);
+    // Use active session IDs for funnel analysis
+    const recentSessionIds = activeSessions.map(s => s.id);
 
     // Funnel Analysis
     const funnelAnalyses = await Promise.all(
