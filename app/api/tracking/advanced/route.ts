@@ -3,14 +3,37 @@ import { getActiveSessions } from '@/lib/tracking/session';
 import { DEFAULT_FUNNELS, analyzeFunnel, getSessionsInRange } from '@/lib/tracking/funnels';
 import { analyzeAllCohorts, createCohortsFromSessions } from '@/lib/tracking/cohorts';
 import { getReplaySummaries, analyzeReplayPatterns } from '@/lib/tracking/replay';
+import { kv } from '@vercel/kv';
+import { type TrackingEvent } from '@/lib/tracking/events';
 
 export async function GET() {
   try {
     // Get active sessions
     const activeSessions = await getActiveSessions();
     
-    // Use active session IDs for funnel analysis
-    const recentSessionIds = activeSessions.map(s => s.id);
+    // Get ALL session IDs from events (not just active ones)
+    // This ensures we analyze completed sessions too
+    const allEventIds = await kv.zrange('events:all', 0, -1, {
+      byScore: false,
+      rev: true,
+    });
+    
+    // Extract unique session IDs from events
+    const sessionIdsSet = new Set<string>();
+    const sampleEvents = await Promise.all(
+      (allEventIds || []).slice(0, 500).map(async (id) => {
+        const event = await kv.get<TrackingEvent>(`event:${id as string}`);
+        return event;
+      })
+    );
+    
+    sampleEvents.forEach(event => {
+      if (event && event.sessionId) {
+        sessionIdsSet.add(event.sessionId);
+      }
+    });
+    
+    const recentSessionIds = Array.from(sessionIdsSet);
 
     // Funnel Analysis
     const funnelAnalyses = await Promise.all(
